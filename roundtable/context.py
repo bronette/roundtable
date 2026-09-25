@@ -13,8 +13,12 @@ PROMPTS = Path(__file__).parent / "prompts"
 MAX_EVIDENCE_CHARS = 20_000
 
 
-def system_prompt(role_file: str) -> str:
-    return (PROMPTS / "_common.md").read_text().strip() + "\n\n" + (PROMPTS / f"{role_file}.md").read_text().strip()
+def system_prompt(role_file: str, *, agent_mode: bool = False) -> str:
+    common = (PROMPTS / "_common.md").read_text().strip()
+    if agent_mode:
+        # the scratch-directory rule does not apply to an agent working inside the worktree
+        common = "\n".join(l for l in common.splitlines() if "scratch directory" not in l)
+    return common + "\n\n" + (PROMPTS / f"{role_file}.md").read_text().strip()
 
 
 def evidence_block(id: str, kind: str, body: Any, *, trust: str = "agent-output") -> str:
@@ -64,3 +68,45 @@ def synthesizer_pack(objective: str, requirements: list[str], *, status: str, ha
     parts.extend(extra_blocks or [])
     parts.append("USAGE: " + dumps(usage))
     return "\n\n".join(parts)
+
+
+# ---- M2 packs
+
+
+def _criteria_text(criteria: list[dict[str, Any]]) -> str:
+    return "\n".join(f"- {c['id']}: {c['requirement']} — check: {c['check']}" for c in criteria) or "(none)"
+
+
+def engineer_pack(objective: str, requirements: list[str], proposal_id: str, proposal: dict[str, Any],
+                  criteria: list[dict[str, Any]], *, tree: str, test_command: str, branch: str,
+                  agent_mode: bool, prior: dict[str, Any] | None = None) -> str:
+    plan = {k: proposal.get(k) for k in ("claim", "approach", "assumptions", "risks")}
+    parts = [objective_block(objective, requirements),
+             f"\nACCEPTED PROPOSAL {proposal_id}:\n" + evidence_block(proposal_id, "proposal", plan),
+             "\nLOCKED ACCEPTANCE CRITERIA (the definition of done):\n" + _criteria_text(criteria),
+             f"\nTEST COMMAND (the orchestrator runs this after you finish): {test_command}",
+             f"\nWORKSPACE ({'you are in it, on branch ' + branch if agent_mode else 'files are shown; return complete files'}):\n"
+             + evidence_block("tree", "file-tree", tree, trust="filesystem")]
+    if prior:
+        parts.append("\nPREVIOUS ATTEMPT FAILED. Fix it.")
+        if prior.get("test_output"):
+            parts.append(evidence_block(prior["test_id"], "test-output", prior["test_output"], trust="test-runner"))
+        if prior.get("diff"):
+            parts.append(evidence_block(prior["impl_id"], "diff-of-previous-attempt", prior["diff"], trust="filesystem"))
+        if prior.get("files"):
+            for path, content in prior["files"].items():
+                parts.append(evidence_block(path, "file", content, trust="filesystem"))
+    return "\n".join(parts)
+
+
+def validator_pack(objective: str, requirements: list[str], criteria: list[dict[str, Any]], *,
+                   files: dict[str, str], test_result: dict[str, Any], diff: str) -> str:
+    parts = [objective_block(objective, requirements),
+             "\nLOCKED ACCEPTANCE CRITERIA:\n" + _criteria_text(criteria),
+             "\nTEST RESULT (real output from the orchestrator):\n"
+             + evidence_block("test", "test-result", test_result, trust="test-runner")]
+    for path, content in files.items():
+        parts.append(evidence_block(path, "file", content, trust="filesystem"))
+    if diff and not files:
+        parts.append(evidence_block("diff", "diff", diff, trust="filesystem"))
+    return "\n".join(parts)

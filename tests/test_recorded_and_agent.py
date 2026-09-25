@@ -56,3 +56,23 @@ def test_agent_raw_mode_no_schema(store, run):
     a = _agent([Recording("free text")])
     res = a.call(store=store, run_id=run, stage="X", system="S", prompt="P", schema=None)
     assert res.output is None and res.completion.text == "free text"
+
+
+def test_fallback_answers_after_primary_fails_twice(store, run):
+    primary = RecordedProvider([Recording({"answer": "x"}), Recording({"answer": "x"})], name="grok")
+    backup = RecordedProvider([Recording({"answer": "b", "reasoning_summary": "y", "confidence": 0.7})], name="claude")
+    fb = Agent("critic", AgentCfg(provider="claude"), backup, billing="api", pricing=Pricing())
+    a = Agent("critic", AgentCfg(provider="grok"), primary, billing="api", pricing=Pricing(), fallback=fb)
+    res = a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+    assert res.output.answer == "b" and res.completion.provider == "claude"
+    rows = store.calls(run)
+    assert [(r["provider"], r["valid"]) for r in rows] == [("grok", 0), ("grok", 0), ("claude", 1)]
+    q = store.open_questions(run)
+    assert len(q) == 1 and "grok failed at CRITIQUE" in q[0]["question"] and "claude answered instead" in q[0]["question"]
+
+
+def test_no_fallback_still_raises(store, run):
+    a = Agent("critic", AgentCfg(provider="grok"), RecordedProvider([Recording({"answer": "x"})] * 2, name="grok"),
+              billing="api", pricing=Pricing())
+    with pytest.raises(SchemaError):
+        a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)

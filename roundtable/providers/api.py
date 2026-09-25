@@ -39,7 +39,7 @@ class AnthropicAPI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         import anthropic
         client = anthropic.Anthropic(api_key=self._key, timeout=timeout_s)
         system = "\n\n".join(m.content for m in messages if m.role == "system") or anthropic.NOT_GIVEN
@@ -84,7 +84,7 @@ class OpenAICompatAPI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         import openai
         client = openai.OpenAI(api_key=self._key, base_url=self.base_url, timeout=timeout_s)
         kwargs: dict[str, Any] = dict(
@@ -120,7 +120,7 @@ class GeminiAPI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         from google import genai
         from google.genai import types
         client = genai.Client(api_key=self._key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
@@ -157,7 +157,7 @@ class OllamaAPI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         import ollama
         client = ollama.Client(host=self.host, timeout=timeout_s)
         t0 = time.monotonic()

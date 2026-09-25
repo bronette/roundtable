@@ -851,3 +851,33 @@ Lessons folded in:
   on non-positive equity violated requirement 1) → P2 → C2 ACCEPT → criteria AC1–AC8 locked →
   IMPLEMENT (stub) → report. Four disagreements preserved, one resolved, three flagged as
   proposer choices the requirements do not pin down. 6 calls, 12 minutes, all on subscriptions.
+
+### 2026-09-25 — M2 shipped
+
+- **M2**: `actions.py` (per-run workspace as git worktree / copy / greenfield, cache exclusion,
+  path-checked writes, commit on the run branch, test runner with stripped env and timeout),
+  engineer in agent mode (CLI inside the worktree) or answer mode (files as JSON), TEST / FIX /
+  REVIEW stages, validator prompt and pack, report sections for implementation, tests and review,
+  per-role `fallback` provider, `effort`, `mode`, `max_turns`, docs (GUIDE, CONFIG, PROVIDERS),
+  landing page under `site/`. 51 tests.
+- **Run 7 (`run_53f50047d6`) completed the whole pipeline live**: P1 → C1 REVISE → P2 → C2 REVISE
+  (blocker) → P3 → C3 REVISE → P4 → C4 ACCEPT → AC1–AC7 locked → Claude (agent mode) wrote
+  dd.py + test_dd.py, commit on `roundtable/run_53f50047d6` → orchestrator ran pytest: 20 passed →
+  qwen3 validator 7/7 with cited tests → synthesizer ACCEPT with two unresolved disagreements
+  preserved. 12 calls, 25 minutes, all on subscriptions.
+- C3 is the run's best moment: every fixture in the accepted criteria also passed a wrong
+  (reset-on-uptick) implementation, and Grok said so. The revision added discriminating fixtures.
+
+Lessons:
+
+- Codex agent mode: `codex exec` has no `--full-auto`; `-s workspace-write` alone is the sandboxed
+  non-interactive mode. Codex also began returning 401 on its ChatGPT session mid-session; the
+  engineer seat was pointed at Claude via `ROUNDTABLE_ENGINEER_PROVIDER`. Roles as config paid off.
+- Grok on long prompts (revised proposals) sometimes spends 10k–17k reasoning tokens and then
+  reports `stopReason: cancelled` with empty text, at any effort. Added per-role `fallback`.
+  Grok also needs `--max-turns > 1`. Its critiques remain the best of the three.
+- A Codex "error" event followed by a reconnect is not a failure; only a turn that never
+  completes is. The adapter now judges by `turn.completed`.
+- Agents leave `__pycache__` and `.pytest_cache` in the worktree; excluded via `info/exclude`.
+- Answer-mode agents mention their scratch cwd unless told to ignore it.
+- A clean four-round run uses exactly 12 calls; example `max_calls` raised to 16.

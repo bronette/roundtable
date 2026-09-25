@@ -74,6 +74,8 @@ class Provider(Protocol):
         max_tokens: int = 4096,
         timeout_s: float = 180.0,
         effort: str | None = None,
+        workspace: str | None = None,   # agent mode: run inside this directory with tools enabled
+        max_turns: int | None = None,   # agent mode: tool-use turns allowed
     ) -> Completion: ...
 
 

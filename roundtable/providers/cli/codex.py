@@ -31,14 +31,19 @@ class CodexCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         system, prompt = split_messages(messages)
         full_prompt = f"SYSTEM INSTRUCTIONS:\n{system}\n\nTASK:\n{prompt}" if system else prompt
-        with common.answer_dir() as cwd:
-            argv = [self.binary, "exec", "--json", "--ephemeral", "--skip-git-repo-check",
-                    "-C", cwd, "-s", "read-only", "-o", os.path.join(cwd, "last.txt")]
+        with common.answer_dir() as tmp:
+            cwd = workspace or tmp
+            argv = [self.binary, "exec", "--json", "--ephemeral", "--skip-git-repo-check", "-C", cwd,
+                    "-o", os.path.join(tmp, "last.txt")]
+            if workspace:
+                argv += ["-s", "workspace-write"]   # exec never prompts; Seatbelt sandbox limits writes to cwd
+            else:
+                argv += ["-s", "read-only"]
             if schema is not None:
-                schema_path = os.path.join(cwd, "schema.json")
+                schema_path = os.path.join(tmp, "schema.json")
                 with open(schema_path, "w") as f:
                     json.dump(json_schema_for(schema, strict=True), f)
                 argv += ["--output-schema", schema_path]
@@ -52,17 +57,17 @@ class CodexCLI:
                 argv, cwd=cwd, env=common.scrubbed_env(keep_api_keys=self.use_api_key), timeout_s=timeout_s)
             last = ""
             try:
-                with open(os.path.join(cwd, "last.txt")) as f:
+                with open(os.path.join(tmp, "last.txt")) as f:
                     last = f.read()
             except FileNotFoundError:
                 pass
         events = common.ndjson(out)
-        for e in events:
-            if e.get("type") in ("error", "turn.failed"):
-                msg = e.get("message") or json.dumps(e.get("error"))
-                common.raise_for_failure("codex", rc, msg, err)
-        if rc != 0:
-            common.raise_for_failure("codex", rc, out, err)
+        completed = any(e.get("type") == "turn.completed" for e in events)
+        if not completed:
+            # transient stream errors are followed by a reconnect; only a turn that never completed is a failure
+            failures = [e for e in events if e.get("type") in ("error", "turn.failed")]
+            msg = "; ".join((e.get("message") or json.dumps(e.get("error"))) for e in failures) or out
+            common.raise_for_failure("codex", rc, msg, err)
         usage = {}
         text = last
         for e in events:

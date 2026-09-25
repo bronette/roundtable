@@ -200,7 +200,7 @@ class Store:
         return {"total": total, "per_provider": per}
 
     def calls(self, run_id: str) -> list[sqlite3.Row]:
-        return self.db.execute("SELECT * FROM agent_calls WHERE run_id=? ORDER BY started_at, attempt", (run_id,)).fetchall()
+        return self.db.execute("SELECT * FROM agent_calls WHERE run_id=? ORDER BY started_at, rowid", (run_id,)).fetchall()
 
     def record_decision(self, run_id: str, from_stage: str, to_stage: str, reason: str, refs: list[str]) -> None:
         self.db.execute("INSERT INTO decisions (run_id, from_stage, to_stage, reason, refs_json, created_at) VALUES (?,?,?,?,?,?)",
@@ -255,6 +255,37 @@ class Store:
         self.db.execute("UPDATE runs SET acceptance_json=?, acceptance_hash=?, acceptance_locked_at=? WHERE id=?",
                         (body, h, now_iso(), run_id))
         return h
+
+    def add_artifact(self, run_id: str, *, call_id: str | None, kind: str, name: str, content: str, artifacts_dir: Path) -> str:
+        aid = self._next_id("artifacts", run_id, "A")
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        rel = f"artifacts/{aid}_{name}"
+        (artifacts_dir / f"{aid}_{name}").write_text(content)
+        data = content.encode()
+        self.db.execute("INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
+                        (run_id, aid, call_id, kind, rel, sha256_text(content), len(data), now_iso()))
+        return aid
+
+    def add_implementation(self, run_id: str, *, call_id: str, proposal_id: str, fix_round: int,
+                           artifact_ids: list[str], body: dict[str, Any]) -> str:
+        iid = self._next_id("implementations", run_id, "I")
+        self.db.execute("INSERT INTO implementations VALUES (?,?,?,?,?,?,?,?)",
+                        (run_id, iid, call_id, proposal_id, fix_round, dumps(artifact_ids), dumps(body), now_iso()))
+        return iid
+
+    def implementations(self, run_id: str) -> list[sqlite3.Row]:
+        return self.db.execute("SELECT * FROM implementations WHERE run_id=? ORDER BY created_at", (run_id,)).fetchall()
+
+    def add_test_run(self, run_id: str, *, implementation_id: str, result: dict[str, Any], output_artifact_id: str | None) -> str:
+        tid = self._next_id("test_runs", run_id, "T")
+        self.db.execute("INSERT INTO test_runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (run_id, tid, implementation_id, result["command"], result["exit_code"], result["passed"],
+                         result["failed"], result["errors"], int(result["timed_out"]), output_artifact_id,
+                         result["duration_s"], now_iso()))
+        return tid
+
+    def test_runs(self, run_id: str) -> list[sqlite3.Row]:
+        return self.db.execute("SELECT * FROM test_runs WHERE run_id=? ORDER BY created_at", (run_id,)).fetchall()
 
     def runs(self, limit: int = 20) -> list[sqlite3.Row]:
         return self.db.execute(

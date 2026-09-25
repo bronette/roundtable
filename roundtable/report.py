@@ -10,7 +10,8 @@ from roundtable.schemas import Synthesis
 from roundtable.store import Store
 
 
-def build_report(store: Store, run_id: str, synthesis: Synthesis | None, *, budget_summary: dict[str, Any] | None = None) -> str:
+def build_report(store: Store, run_id: str, synthesis: Synthesis | None, *, budget_summary: dict[str, Any] | None = None,
+                 workspace: Any = None) -> str:
     run = store.get_run(run_id)
     proposals = store.proposals(run_id)
     critiques = store.critiques(run_id)
@@ -68,6 +69,41 @@ def build_report(store: Store, run_id: str, synthesis: Synthesis | None, *, budg
         out += ["", "## Acceptance criteria (locked " + run["acceptance_locked_at"] + ")", ""]
         for ac in json.loads(run["acceptance_json"]):
             out.append(f"- {ac['id']}: {ac['requirement']} — check: {ac['check']}")
+
+    impls = store.implementations(run_id)
+    tests = store.test_runs(run_id)
+    reviews = [c for c in critiques if c["target_kind"] == "implementation"]
+    if impls:
+        out += ["", "## Implementation", ""]
+        if workspace is not None:
+            out.append(f"Branch `{workspace.branch}` in `{workspace.path}` ({workspace.mode}"
+                       + (f" of `{workspace.source_repo}`" if workspace.source_repo else "") + "). "
+                       "Nothing has been merged; review the branch and merge it yourself.")
+            out.append("")
+        for r in impls:
+            body = json.loads(r["body_json"])
+            out.append(f"- **{r['id']}** (fix round {r['fix_round']}, commit `{(body.get('commit') or '')[:10]}`): {body.get('summary', '')}")
+            if body.get("changed"):
+                out.append("  - files: " + ", ".join(f"`{c}`" for c in body["changed"]))
+            for g in body.get("known_gaps", []):
+                out.append(f"  - known gap: {g}")
+            for a in json.loads(r["artifact_ids_json"]):
+                out.append(f"  - diff: `{a}` under artifacts/")
+        out += ["", "## Test runs", "", "| id | command | exit | passed | failed | errors | time |", "|---|---|---|---|---|---|---|"]
+        for t in tests:
+            out.append(f"| {t['id']} | `{t['command']}` | {t['exit_code']}{' (timeout)' if t['timed_out'] else ''} | "
+                       f"{t['passed']} | {t['failed']} | {t['errors']} | {t['duration_s']}s |")
+    if reviews:
+        out += ["", "## Validator review", ""]
+        for c in reviews:
+            cb = json.loads(c["body_json"])
+            out.append(f"**{c['id']}** on {c['target_id']} → **{c['verdict']}** (confidence {cb.get('confidence', 0):.2f})")
+            out.append("")
+            out += ["| criterion | satisfied | evidence |", "|---|---|---|"]
+            for ch in cb.get("checks", []):
+                out.append(f"| {ch['criterion_id']} | {'yes' if ch['satisfied'] else 'NO'} | {ch['evidence'].replace('|', '/')} |")
+            for x in cb.get("problems", []):
+                out.append(f"- [{x['severity']}] {x['description']}" + (f" ({x['location']})" if x.get("location") else ""))
     if questions:
         out += ["", "## Open questions", ""]
         out += [f"- ({q['raised_by_role']}) {q['question']}" for q in questions]

@@ -17,7 +17,7 @@ pricing: pricing.yaml
 budget:
   max_rounds: 3
   max_fix_rounds: 1
-  max_calls: 12
+  max_calls: 16                  # Grok repair attempts count; 12 was exactly used by a clean 4-round run
   max_tokens: 400000
   max_cost_usd: 5.00
   max_seconds: 1800
@@ -34,9 +34,9 @@ providers:
 
 agents:
   proposer:    { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
-  critic:      { provider: grok_cli,   model: "${ROUNDTABLE_GROK_MODEL:-}", effort: medium, timeout_s: 600 }
+  critic:      { provider: "${ROUNDTABLE_CRITIC_PROVIDER:-grok_cli}", effort: medium, timeout_s: 600, fallback: claude_cli }
   reviser:     { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
-  engineer:    { provider: codex_cli,  model: "${ROUNDTABLE_CODEX_MODEL:-}", timeout_s: 900 }
+  engineer:    { provider: "${ROUNDTABLE_ENGINEER_PROVIDER:-codex_cli}", model: "${ROUNDTABLE_ENGINEER_MODEL:-}", timeout_s: 900 }
   validator:   { provider: ollama,     model: "${ROUNDTABLE_OLLAMA_MODEL:-qwen3:30b-a3b}", timeout_s: 600 }
   synthesizer: { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
 

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from roundtable.config import AgentCfg, Config
 from roundtable.pricing import Pricing
 from roundtable.providers import build_provider
-from roundtable.providers.base import Completion, Message, Provider, SchemaError, validate_output
+from roundtable.providers.base import Completion, Message, Provider, ProviderError, SchemaError, validate_output
 from roundtable.store import Store
 from roundtable.util import now_iso
 
@@ -25,8 +25,10 @@ class CallResult:
 
 
 class Agent:
-    def __init__(self, role: str, cfg: AgentCfg, provider: Provider, *, billing: str, pricing: Pricing):
+    def __init__(self, role: str, cfg: AgentCfg, provider: Provider, *, billing: str, pricing: Pricing,
+                 fallback: "Agent | None" = None):
         self.role, self.cfg, self.provider, self.billing, self.pricing = role, cfg, provider, billing, pricing
+        self.fallback = fallback
 
     @classmethod
     def from_config(cls, role: str, config: Config, pricing: Pricing) -> "Agent":
@@ -34,11 +36,31 @@ class Agent:
         p = config.providers[a.provider]
         provider = build_provider(a.provider, p, model=a.model)
         billing = "subscription" if (p.type == "cli" and not p.use_api_key) else "api"
-        return cls(role, a, provider, billing=billing, pricing=pricing)
+        fallback = None
+        if a.fallback:
+            fp = config.providers[a.fallback]
+            fcfg = a.model_copy(update={"provider": a.fallback, "model": None, "fallback": None})
+            fallback = cls(role, fcfg, build_provider(a.fallback, fp, model=None),
+                           billing="subscription" if (fp.type == "cli" and not fp.use_api_key) else "api", pricing=pricing)
+        return cls(role, a, provider, billing=billing, pricing=pricing, fallback=fallback)
 
-    def call(
+    def call(self, **kw) -> CallResult:
+        """One validated exchange. If this provider fails (twice on schema, or a provider error other than
+        a usage limit on the fallback itself) and a fallback is configured, the fallback answers the same prompt.
+        Every attempt, including the failed ones, is in the audit log under its own provider name."""
+        try:
+            return self._call(**kw)
+        except (ProviderError, SchemaError) as e:
+            if self.fallback is None:
+                raise
+            kw["store"].add_open_question(kw["run_id"], self.role,
+                f"{self.provider.name} failed at {kw['stage']} ({type(e).__name__}: {str(e)[:160]}); "
+                f"{self.fallback.provider.name} answered instead")
+            return self.fallback._call(**kw)
+
+    def _call(
         self, *, store: Store, run_id: str, stage: str, system: str, prompt: str,
-        schema: type[BaseModel] | None, context_refs: list[str] | None = None,
+        schema: type[BaseModel] | None, context_refs: list[str] | None = None, workspace: str | None = None,
     ) -> CallResult:
         messages = [Message("system", system), Message("user", prompt)]
         refs = context_refs or []
@@ -51,7 +73,8 @@ class Agent:
             try:
                 completion = self.provider.run(
                     messages, schema=schema, temperature=self.cfg.temperature,
-                    max_tokens=self.cfg.max_tokens, timeout_s=self.cfg.timeout_s, effort=self.cfg.effort)
+                    max_tokens=self.cfg.max_tokens, timeout_s=self.cfg.timeout_s, effort=self.cfg.effort,
+                    workspace=workspace, max_turns=self.cfg.max_turns)
                 if schema is not None:
                     if completion.parsed is None:
                         raise SchemaError("provider returned no JSON object")

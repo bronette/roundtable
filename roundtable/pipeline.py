@@ -9,13 +9,15 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Callable
 
-from roundtable import context
+import json
+
+from roundtable import actions, context
 from roundtable.agents import Agent
 from roundtable.budget import Budget, BudgetExceeded
 from roundtable.config import Config
 from roundtable.providers.base import ProviderError, SchemaError, UsageLimitError
 from roundtable.report import build_report
-from roundtable.schemas import Critique, Proposal, Scope, Synthesis, Verdict
+from roundtable.schemas import Critique, Implementation, Proposal, Review, Scope, Synthesis, Verdict
 from roundtable.store import Store
 
 
@@ -51,6 +53,17 @@ class RunState:
     synthesis: Synthesis | None = None
     report_path: Path | None = None
     notes: list[str] = field(default_factory=list)
+    ws: actions.Workspace | None = None
+    impl_id: str | None = None
+    test_id: str | None = None
+    last_test: dict | None = None
+    last_diff: str = ""
+    changed_paths: list[str] = field(default_factory=list)
+    review_id: str | None = None
+
+    @property
+    def run_dir(self) -> Path:
+        return self.workspace.parent
 
 
 class Pipeline:
@@ -91,12 +104,15 @@ class Pipeline:
         self.on_event(Stage.HALTED, reason)
         return Stage.SYNTHESIZE, f"halted: {reason}", []
 
-    def _call(self, st: RunState, role: str, stage: Stage, prompt: str, schema, refs: list[str]):
+    def _call(self, st: RunState, role: str, stage: Stage, prompt: str, schema, refs: list[str],
+              *, prompt_file: str | None = None, workspace: str | None = None):
         agent = self.agents[role]
         self.budget.check(self.store, st.run_id, provider=agent.provider.name)
-        self.on_event(stage, f"{role} ← {agent.provider.name}" + (f"/{agent.cfg.model}" if agent.cfg.model else ""))
-        res = agent.call(store=self.store, run_id=st.run_id, stage=stage, system=context.system_prompt(role),
-                         prompt=prompt, schema=schema, context_refs=refs)
+        self.on_event(stage, f"{role} ← {agent.provider.name}" + (f"/{agent.cfg.model}" if agent.cfg.model else "")
+                             + (" [agent mode in worktree]" if workspace else ""))
+        res = agent.call(store=self.store, run_id=st.run_id, stage=stage,
+                         system=context.system_prompt(prompt_file or role, agent_mode=workspace is not None),
+                         prompt=prompt, schema=schema, context_refs=refs, workspace=workspace)
         c = res.completion
         self.on_event(stage, f"{role} → {c.model}  {c.latency_ms} ms  in={c.usage.input_tokens} out={c.usage.output_tokens}"
                              + (" (repaired)" if res.attempts > 1 else ""))
@@ -105,8 +121,109 @@ class Pipeline:
     # ---- handlers
 
     def h_init(self, st: RunState) -> Transition:
-        st.workspace.mkdir(parents=True, exist_ok=True)
-        return Stage.PROPOSE, "workspace ready", []
+        try:
+            st.ws = actions.prepare_workspace(st.run_dir, self.cfg.project.repo, st.run_id)
+        except actions.WorkspaceError as e:
+            raise ProviderError(f"workspace: {e}") from e
+        return Stage.PROPOSE, f"workspace ready ({st.ws.mode}, branch {st.ws.branch})", []
+
+    # ---- engineering stages
+
+    def _engineer_mode(self) -> bool:
+        """True = agent mode (CLI runs inside the worktree)."""
+        a = self.cfg.agents["engineer"]
+        if a.mode:
+            return a.mode == "agent"
+        return self.cfg.providers[a.provider].type == "cli"
+
+    def _criteria(self, st: RunState) -> list[dict]:
+        run = self.store.get_run(st.run_id)
+        return json.loads(run["acceptance_json"] or "[]")
+
+    def _engineer(self, st: RunState, stage: Stage, prior: dict | None) -> Transition:
+        p, ws = self.cfg.project, st.ws
+        assert ws and st.proposal_id
+        perm = self.cfg.permissions.get("engineer")
+        if perm is not None and perm.workspace != "write":
+            raise ProviderError("engineer role lacks workspace: write permission")
+        agent_mode = self._engineer_mode()
+        criteria = self._criteria(st)
+        prompt = context.engineer_pack(p.objective, p.requirements, st.proposal_id, self.store.proposal(st.run_id, st.proposal_id),
+                                       criteria, tree=actions.file_tree(ws), test_command=p.test_command, branch=ws.branch,
+                                       agent_mode=agent_mode, prior=prior)
+        a = self.cfg.agents["engineer"]
+        res = self._call(st, "engineer", stage, prompt, Implementation, [st.proposal_id],
+                         prompt_file="engineer" if agent_mode else "engineer_answer",
+                         workspace=str(ws.path) if agent_mode else None)
+        impl: Implementation = res.output  # type: ignore[assignment]
+        if not agent_mode:
+            try:
+                actions.write_files(ws, impl.files)
+            except actions.WorkspaceError as e:
+                raise ProviderError(f"engineer wrote outside workspace: {e}") from e
+        commit, diff, changed = actions.commit_changes(ws, f"roundtable {st.run_id}: {stage.lower()} round {st.fix_round}")
+        st.last_diff, st.changed_paths = diff, changed
+        art = self.store.add_artifact(st.run_id, call_id=res.call_id, kind="diff", name=f"{stage.lower()}{st.fix_round}.diff",
+                                      content=diff or "(no changes)", artifacts_dir=st.run_dir / "artifacts")
+        st.impl_id = self.store.add_implementation(st.run_id, call_id=res.call_id, proposal_id=st.proposal_id, fix_round=st.fix_round,
+                                                   artifact_ids=[art], body=impl.model_dump(mode="json") | {"commit": commit, "changed": changed})
+        self.on_event(stage, f"{st.impl_id}: {len(changed)} file(s) changed, commit {commit[:10]} on {ws.branch}"
+                             + (f"; known gaps: {len(impl.known_gaps)}" if impl.known_gaps else ""))
+        if not changed:
+            self.on_event(stage, "engineer changed nothing")
+        return Stage.TEST, f"{st.impl_id} committed ({len(changed)} files)", [st.impl_id, art]
+
+    def h_implement(self, st: RunState) -> Transition:
+        if self.cfg.autonomy <= 1:
+            st.status, st.halt_reason = "plan_accepted", "autonomy level 1: proposals only"
+            return Stage.SYNTHESIZE, st.halt_reason, [st.proposal_id or ""]
+        return self._engineer(st, Stage.IMPLEMENT, None)
+
+    def h_test(self, st: RunState) -> Transition:
+        p, ws = self.cfg.project, st.ws
+        assert ws and st.impl_id
+        result = actions.run_tests(ws, p.test_command, python=p.python, timeout_s=p.test_timeout_s)
+        art = self.store.add_artifact(st.run_id, call_id=None, kind="test_output", name=f"test{st.fix_round}.txt",
+                                      content=result.stdout_tail, artifacts_dir=st.run_dir / "artifacts")
+        st.test_id = self.store.add_test_run(st.run_id, implementation_id=st.impl_id, result=result.model_dump(), output_artifact_id=art)
+        st.last_test = result.model_dump()
+        self.on_event(Stage.TEST, f"{st.test_id}: `{result.command}` exit={result.exit_code} passed={result.passed} "
+                                  f"failed={result.failed} errors={result.errors} {result.duration_s}s"
+                                  + (" TIMED OUT" if result.timed_out else ""))
+        if result.exit_code == 0:
+            st.status = "implemented"
+            return Stage.REVIEW, f"{st.test_id} passed", [st.test_id]
+        if st.fix_round < self.cfg.budget.max_fix_rounds:
+            st.fix_round += 1
+            return Stage.FIX, f"{st.test_id} failed; fix round {st.fix_round}/{self.cfg.budget.max_fix_rounds}", [st.test_id]
+        st.status = "tests_failing"
+        return Stage.REVIEW, f"{st.test_id} failed; fix rounds exhausted", [st.test_id]
+
+    def h_fix(self, st: RunState) -> Transition:
+        assert st.ws and st.last_test
+        prior = {"test_id": st.test_id, "test_output": st.last_test.get("stdout_tail", ""), "impl_id": st.impl_id}
+        if self._engineer_mode():
+            prior["diff"] = st.last_diff
+        else:
+            prior["files"] = actions.read_files(st.ws, st.changed_paths)
+        return self._engineer(st, Stage.FIX, prior)
+
+    def h_review(self, st: RunState) -> Transition:
+        p, ws = self.cfg.project, st.ws
+        assert ws and st.last_test and st.impl_id
+        files = actions.read_files(ws, st.changed_paths)
+        prompt = context.validator_pack(p.objective, p.requirements, self._criteria(st), files=files,
+                                        test_result=st.last_test, diff=st.last_diff)
+        res = self._call(st, "validator", Stage.REVIEW, prompt, Review, [st.impl_id, st.test_id or ""])
+        rev: Review = res.output  # type: ignore[assignment]
+        st.review_id = self.store.add_critique(st.run_id, call_id=res.call_id, target_kind="implementation", target_id=st.impl_id,
+                                               verdict=rev.verdict, body=rev.model_dump(mode="json"))
+        ok = sum(1 for c in rev.checks if c.satisfied)
+        self.on_event(Stage.REVIEW, f"{st.review_id} on {st.impl_id} → {rev.verdict}  ({ok}/{len(rev.checks)} criteria satisfied, "
+                                    f"{len(rev.problems)} problems)")
+        if st.status == "implemented" and rev.verdict != Verdict.ACCEPT:
+            st.status = "implemented_with_objections"
+        return Stage.SYNTHESIZE, f"{st.review_id} {rev.verdict}", [st.review_id]
 
     def h_propose(self, st: RunState) -> Transition:
         p = self.cfg.project
@@ -188,14 +305,6 @@ class Pipeline:
             return Stage.SYNTHESIZE, st.halt_reason, [new_pid]
         return Stage.CRITIQUE, f"{new_pid} revised", [pid, cid, new_pid]
 
-    def h_implement(self, st: RunState) -> Transition:
-        # M2 adds the engineer. Until then the accepted plan is the deliverable.
-        if self.cfg.autonomy <= 1:
-            st.status, st.halt_reason = "plan_accepted", "autonomy level 1: proposals only"
-        else:
-            st.status, st.halt_reason = "plan_accepted", "implementation stage not available yet (M2)"
-        return Stage.SYNTHESIZE, st.halt_reason, [st.proposal_id or ""]
-
     def h_synthesize(self, st: RunState) -> Transition:
         p = self.cfg.project
         import json as _json
@@ -203,9 +312,17 @@ class Pipeline:
         critiques = [(r["id"], r["target_id"], _json.loads(r["body_json"])) for r in self.store.critiques(st.run_id)]
         decisions = [f"{d['from_stage']} → {d['to_stage']}: {d['reason']}" for d in self.store.decisions(st.run_id)]
         status = st.status if st.status != "running" else "done"
+        extra = []
+        for r in self.store.implementations(st.run_id):
+            body = _json.loads(r["body_json"])
+            extra.append(context.evidence_block(r["id"], "implementation", {k: body.get(k) for k in ("summary", "assumptions", "known_gaps", "changed", "commit")}))
+        for r in self.store.test_runs(st.run_id):
+            extra.append(context.evidence_block(r["id"], "test-run", {k: r[k] for k in ("command", "exit_code", "passed", "failed", "errors", "timed_out")}, trust="test-runner"))
+        if st.ws:
+            extra.append(f"WORKSPACE: branch {st.ws.branch} ({st.ws.mode}); changed files: {', '.join(st.changed_paths) or 'none'}")
         prompt = context.synthesizer_pack(p.objective, p.requirements, status=status, halt_reason=st.halt_reason,
                                           proposals=proposals, critiques=critiques, decisions=decisions,
-                                          usage=self.budget.summary(self.store, st.run_id))
+                                          usage=self.budget.summary(self.store, st.run_id), extra_blocks=extra)
         synth_error: str | None = None
         synth = self.agents.get("synthesizer")
         if synth is None:
@@ -227,7 +344,8 @@ class Pipeline:
                 self.on_event(Stage.SYNTHESIZE, f"synthesizer failed ({synth_error[:120]}); writing fact-only report")
         final_status = status
         self.store.finish_run(st.run_id, final_status, st.halt_reason)
-        report = build_report(self.store, st.run_id, st.synthesis, budget_summary=self.budget.summary(self.store, st.run_id))
+        report = build_report(self.store, st.run_id, st.synthesis, budget_summary=self.budget.summary(self.store, st.run_id),
+                              workspace=st.ws)
         if synth_error:
             report += f"\n\n> Synthesizer unavailable: {synth_error}\n"
         st.report_path = st.workspace.parent / "report.md"
@@ -248,5 +366,8 @@ class Pipeline:
         Stage.CRITIQUE: h_critique,
         Stage.REVISE: h_revise,
         Stage.IMPLEMENT: h_implement,
+        Stage.TEST: h_test,
+        Stage.FIX: h_fix,
+        Stage.REVIEW: h_review,
         Stage.SYNTHESIZE: h_synthesize,
     }

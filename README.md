@@ -5,9 +5,16 @@ specialists through one Python orchestrator:
 propose → critique → revise → implement → test → review → synthesize. Every call is
 logged to SQLite. Agents exchange schema-validated JSON, never raw conversation.
 
-Design: [`docs/DESIGN.md`](docs/DESIGN.md). Status: **M1 complete**. The propose → critique →
-revise loop runs live with budgets, locked acceptance criteria, and a report. M2 adds the
-engineer (a CLI agent inside a per-run git worktree), test execution, validator, and review.
+Status: **M2 complete**. Propose → critique → revise → implement → test → review → synthesize
+runs end to end. The engineer is a CLI agent working inside a per-run git worktree; the
+orchestrator commits its diff, runs the tests, and a separate model validates each locked
+acceptance criterion against the real output. Nothing is merged without you.
+
+Documentation:
+- [User guide](docs/GUIDE.md): install, first run, what a run does, reading the report, working on your own repos
+- [Configuration reference](docs/CONFIG.md): every key in `project.yaml`
+- [Providers](docs/PROVIDERS.md): each backend's exact invocation, envelope, and gotchas
+- [Design](docs/DESIGN.md): architecture, schemas, state machine, failure modes, milestone plan and log
 
 ## Providers
 
@@ -40,7 +47,8 @@ uv run pytest
 ## How a run works
 
 ```
-INIT → PROPOSE → CRITIQUE ─┬─ ACCEPT ──────────────────► IMPLEMENT (M2) → TEST → REVIEW → SYNTHESIZE → DONE
+INIT → PROPOSE → CRITIQUE ─┬─ ACCEPT ──────────────────► IMPLEMENT → TEST ─┬─ pass → REVIEW → SYNTHESIZE → DONE
+                           │                                              └─ fail → FIX → TEST (once) → REVIEW …
              ▲             ├─ REVISE, round < max ──► REVISE ┘
              └─────────────┤─ REVISE at max rounds ──► IMPLEMENT with open criticisms
                            ├─ REJECT ─────────────────► SYNTHESIZE
@@ -54,7 +62,9 @@ Any stage: budget exceeded or provider failure → HALTED → SYNTHESIZE (one ca
   must list what it checked; an ACCEPT with an open blocker is rejected by schema.
 - Budgets (calls, tokens, dollars, seconds, rounds) are checked before every call. A halted
   run still gets a report; the synthesizer is allowed one call past the budget for it.
-- Autonomy 0 stops after the first critique; 1 stops at an accepted plan; 2 implements (M2).
+- Autonomy 0 stops after the first critique; 1 stops at an accepted plan; 2 implements.
+- `project.repo` points a run at any directory or git repo. Git repos get a worktree on a new
+  branch `roundtable/<run_id>`; your checkout is untouched. Review and merge the branch yourself.
 
 ## Layout
 
@@ -68,8 +78,9 @@ roundtable/
   context.py       context packs per role; <evidence> wrapper for untrusted text
   budget.py        hard caps checked before every call
   pipeline.py      the state machine
+  actions.py       the only side effects: workspace, file writes, git commit, test runner
   report.py        the human report (facts from SQLite + the synthesizer's narrative)
-  prompts/         one .md per role
+  prompts/         one .md per role (engineer has agent and answer variants)
   providers/
     base.py        Message, Usage, Completion, Provider protocol, JSON helpers
     cli/           claude, codex, grok subprocess adapters (subscription auth)

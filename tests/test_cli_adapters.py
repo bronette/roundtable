@@ -102,8 +102,17 @@ def test_codex_events(monkeypatch):
 
 
 def test_codex_turn_failed(monkeypatch):
-    ev = CODEX_EVENTS + "\n" + json.dumps({"type": "turn.failed", "error": {"message": "invalid_json_schema"}})
+    ev = "\n".join(json.dumps(e) for e in [{"type": "thread.started", "thread_id": "t1"}, {"type": "turn.started"},
+                                            {"type": "turn.failed", "error": {"message": "invalid_json_schema"}}])
     monkeypatch.setattr(common, "run_argv", fake_run(1, ev))
     from roundtable.providers.base import ProviderError
     with pytest.raises(ProviderError, match="invalid_json_schema"):
         codex.CodexCLI("x").run([Message("user", "U")], schema=Answer)
+
+
+def test_codex_transient_error_then_completion_is_success(monkeypatch):
+    ev = json.dumps({"type": "error", "message": "stream disconnected; reconnecting"}) + "\n" + CODEX_EVENTS
+    r = fake_run(0, ev)
+    r.last = '{"answer":"a","reasoning_summary":"r","confidence":0.5}'
+    monkeypatch.setattr(common, "run_argv", r)
+    assert codex.CodexCLI("x").run([Message("user", "U")], schema=Answer).parsed["answer"] == "a"

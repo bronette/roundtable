@@ -42,6 +42,9 @@ class ProjectCfg(BaseModel):
     requirements: list[str] = []
     repo: str | None = None          # any directory or git repo; None = greenfield
     domain: str | None = None        # e.g. "trading" enables the trading critic checklist (M5)
+    test_command: str = "python -m pytest -q"
+    python: str | None = None        # interpreter for `python ...` test commands; default: roundtable's own
+    test_timeout_s: float = 300.0
 
 
 class ProviderBudget(BaseModel):
@@ -87,6 +90,9 @@ class AgentCfg(BaseModel):
     max_tokens: int = 4096
     timeout_s: float = 300.0
     effort: Literal["low", "medium", "high"] | None = None   # reasoning effort where the backend supports it
+    fallback: str | None = None                              # provider to use when this one fails twice (logged; report shows who answered)
+    mode: Literal["answer", "agent"] | None = None           # engineer only; default: agent for cli providers, answer otherwise
+    max_turns: int = 40                                      # agent mode: tool-use turns allowed per call
 
     @model_validator(mode="after")
     def _empty_model(self) -> "AgentCfg":
@@ -117,6 +123,8 @@ class Config(BaseModel):
         for role, a in self.agents.items():
             if a.provider not in self.providers:
                 raise ValueError(f"agent {role!r} references unknown provider {a.provider!r}")
+            if a.fallback and a.fallback not in self.providers:
+                raise ValueError(f"agent {role!r} fallback references unknown provider {a.fallback!r}")
         return self
 
     def check_providers(self) -> dict[str, str]:

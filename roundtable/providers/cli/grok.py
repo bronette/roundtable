@@ -29,13 +29,17 @@ class GrokCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
         system, prompt = split_messages(messages)
-        with common.answer_dir() as cwd:
+        with common.answer_dir() as tmp:
+            cwd = workspace or tmp
             # max_turns > 1: grok spends a turn reasoning before it emits structured output on long
             # tasks; with --max-turns 1 the envelope comes back with empty text and no structuredOutput.
-            argv = [self.binary, "--single", prompt, "--output-format", "json", "--max-turns", str(self.max_turns),
+            turns = (max_turns or 40) if workspace else self.max_turns
+            argv = [self.binary, "--single", prompt, "--output-format", "json", "--max-turns", str(turns),
                     "--disable-web-search", "--cwd", cwd]
+            if workspace:
+                argv += ["--always-approve"]   # no sandbox in grok: containment is the worktree + the prompt
             if schema is not None:
                 argv += ["--json-schema", json.dumps(json_schema_for(schema))]
             if system:

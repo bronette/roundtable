@@ -24,6 +24,7 @@ class Recording:
     model: str = "recorded"
     input_tokens: int = 100
     output_tokens: int = 50
+    side_effect: Any = None          # callable(workspace) run before returning; simulates an agent-mode CLI editing files
 
 
 @dataclass
@@ -42,6 +43,8 @@ class RecordedProvider:
         max_tokens: int = 4096,
         timeout_s: float = 180.0,
         effort: str | None = None,
+        workspace: str | None = None,
+        max_turns: int | None = None,
     ) -> Completion:
         if self._cursor >= len(self.recordings):
             raise ProviderError(f"{self.name}: no recording for call #{self._cursor + 1}")
@@ -54,7 +57,9 @@ class RecordedProvider:
         for needle in rec.forbids_prompt_contains:
             if needle in prompt:
                 raise PromptGuardViolation(f"prompt contains forbidden {needle!r}")
-        self.calls.append({"messages": messages, "schema": schema.__name__ if schema else None})
+        self.calls.append({"messages": messages, "schema": schema.__name__ if schema else None, "workspace": workspace})
+        if rec.side_effect is not None:
+            rec.side_effect(workspace)
         if isinstance(rec.output, str):
             text, parsed = rec.output, None
         else:
