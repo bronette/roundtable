@@ -64,7 +64,7 @@ class BudgetCfg(BaseModel):
 
 class ProviderCfg(BaseModel):
     type: Literal["cli", "api"]
-    cli: Literal["claude", "codex", "grok"] | None = None
+    cli: Literal["claude", "codex", "grok", "gemini"] | None = None
     sdk: Literal["anthropic", "openai_compat", "gemini", "ollama"] | None = None
     api_key_env: str | None = None
     base_url: str | None = None
@@ -77,7 +77,7 @@ class ProviderCfg(BaseModel):
     @model_validator(mode="after")
     def _shape(self) -> "ProviderCfg":
         if self.type == "cli" and not self.cli:
-            raise ValueError("cli providers need `cli: claude|codex|grok`")
+            raise ValueError("cli providers need `cli: claude|codex|grok|gemini`")
         if self.type == "api" and not self.sdk:
             raise ValueError("api providers need `sdk: anthropic|openai_compat|gemini|ollama`")
         return self
@@ -133,7 +133,12 @@ class Config(BaseModel):
         for name, p in self.providers.items():
             if p.type == "cli":
                 binary = p.binary or p.cli or ""
-                out[name] = "ok" if shutil.which(binary) else f"{binary!r} not on PATH"
+                if not shutil.which(binary):
+                    out[name] = f"{binary!r} not on PATH"
+                elif p.cli == "gemini" and not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+                    out[name] = "GEMINI_API_KEY not set (personal login unsupported)"
+                else:
+                    out[name] = "ok"
             elif p.sdk == "ollama":
                 out[name] = "ok"
             else:

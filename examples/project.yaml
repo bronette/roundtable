@@ -26,6 +26,7 @@ providers:
   claude_cli: { type: cli, cli: claude }          # claude.ai subscription login
   codex_cli:  { type: cli, cli: codex }           # ChatGPT login
   grok_cli:   { type: cli, cli: grok }            # xAI login
+  gemini_cli: { type: cli, cli: gemini }          # needs GEMINI_API_KEY (personal login no longer accepted)
   ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
   anthropic:  { type: api, sdk: anthropic,     api_key_env: ANTHROPIC_API_KEY }
   openai:     { type: api, sdk: openai_compat, api_key_env: OPENAI_API_KEY }

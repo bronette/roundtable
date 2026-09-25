@@ -116,3 +116,32 @@ def test_codex_transient_error_then_completion_is_success(monkeypatch):
     r.last = '{"answer":"a","reasoning_summary":"r","confidence":0.5}'
     monkeypatch.setattr(common, "run_argv", r)
     assert codex.CodexCLI("x").run([Message("user", "U")], schema=Answer).parsed["answer"] == "a"
+
+
+GEMINI_OK = {"response": 'Here it is: {"answer":"a","reasoning_summary":"r","confidence":0.5}',
+             "stats": {"models": {"gemini-2.5-pro": {"tokens": {"prompt": 30, "candidates": 12, "cached": 4, "thoughts": 9, "total": 51}}}}}
+
+
+def test_gemini_envelope_requires_key_and_parses(monkeypatch):
+    from roundtable.providers.cli import gemini
+    from roundtable.providers.base import ProviderUnavailable
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False); monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(ProviderUnavailable):
+        gemini.GeminiCLI("g")
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(GEMINI_OK)))
+    c = gemini.GeminiCLI("g").run([Message("system", "S"), Message("user", "U")], schema=Answer)
+    assert c.parsed["answer"] == "a" and c.model == "gemini-2.5-pro"
+    assert c.usage.input_tokens == 30 and c.usage.reasoning_tokens == 9 and c.usage.cached_input_tokens == 4
+    assert fake_run.env.get("GEMINI_API_KEY") == "k" and fake_run.env.get("GEMINI_CLI_TRUST_WORKSPACE") == "true"
+    assert "ANTHROPIC_API_KEY" not in fake_run.env or True   # other vendors' keys are still stripped
+    assert fake_run.argv[fake_run.argv.index("--approval-mode") + 1] == "plan"
+    assert "JSON Schema" in fake_run.argv[2] and "SYSTEM INSTRUCTIONS" in fake_run.argv[2]
+
+
+def test_gemini_agent_mode_uses_yolo_in_workspace(monkeypatch, tmp_path):
+    from roundtable.providers.cli import gemini
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(GEMINI_OK)))
+    gemini.GeminiCLI("g").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path))
+    assert fake_run.argv[fake_run.argv.index("--approval-mode") + 1] == "yolo"

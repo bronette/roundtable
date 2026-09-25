@@ -25,6 +25,7 @@ Roundtable can use the CLIs you already log in to, with no API keys:
 | `claude_cli` | `claude -p` headless | claude.ai subscription |
 | `codex_cli`  | `codex exec` | ChatGPT login |
 | `grok_cli`   | `grok --single` | xAI login |
+| `gemini_cli` | `gemini -p` | `GEMINI_API_KEY` (Google dropped personal logins for this CLI) |
 | `ollama`     | local Ollama | none |
 | `anthropic`, `openai`, `xai`, `gemini` | vendor APIs | `*_API_KEY` env vars |
 
@@ -97,8 +98,8 @@ runs/              per-project SQLite DB and per-run workspaces (gitignored)
   the login, not the API. Set `use_api_key: true` on a provider to bill the API instead.
 - Answer-mode calls run in an empty temp directory so no `CLAUDE.md` / `AGENTS.md` leaks in.
 - Codex strict mode needs `additionalProperties: false` everywhere; the adapter handles it.
-- The Gemini CLI's individual Google login is no longer accepted by that client (checked
-  2026-09-25); Gemini needs `GEMINI_API_KEY`.
+- Gemini: the CLI's individual Google login is no longer accepted (checked on 0.47 and 0.61,
+  2026-09-25). Both Gemini providers use `GEMINI_API_KEY` from https://aistudio.google.com/apikey.
 
 ## License
 

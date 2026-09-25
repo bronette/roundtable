@@ -81,10 +81,26 @@ spend 10k+ reasoning tokens and then report `stopReason: cancelled` with empty t
 `--reasoning-effort`; configure a `fallback` provider for seats that use it. Grok is the
 slowest backend as a critic (2 to 4 minutes, 10k to 15k output tokens) and the most thorough.
 
-### gemini
+### gemini (Gemini CLI 0.61.x)
 
-The Gemini CLI 0.47 refuses the individual Google login (`IneligibleTierError`, pointing to
-Antigravity). Use the API provider with `GEMINI_API_KEY`.
+The Gemini CLI refuses the individual Google login (`IneligibleTierError`, "migrate to
+Antigravity"), verified on 0.47 and 0.61. It works with an API key instead: create one at
+https://aistudio.google.com/apikey (free tier available) and `export GEMINI_API_KEY=...`. The
+adapter keeps that one variable in the child environment and strips the other vendors' keys.
+
+Answer mode:
+```
+gemini -p "<system + schema + prompt>" -o json --approval-mode plan [-m <model>]     GEMINI_CLI_TRUST_WORKSPACE=true
+```
+Agent mode: `--approval-mode yolo` with cwd set to the worktree. There is no sandbox flag in
+headless mode beyond the worktree boundary.
+
+The CLI has no schema or system-prompt flags; both ride in the prompt and the orchestrator
+parses and validates the reply with its usual repair round. Envelope: `response` (text) and
+`stats.models.<model>.tokens.{prompt, candidates, cached, thoughts}`. The same key also drives
+the `gemini` API provider, which does support native JSON-schema output and is the better
+choice for answer-mode seats; use the CLI for the engineer seat when you want Gemini editing
+files itself.
 
 ## API providers
 

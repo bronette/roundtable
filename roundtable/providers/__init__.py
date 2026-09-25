@@ -18,6 +18,10 @@ def build_provider(name: str, cfg: ProviderCfg, *, model: str | None) -> Provide
         if cfg.cli == "grok":
             from roundtable.providers.cli.grok import GrokCLI
             return GrokCLI(name, max_turns=cfg.max_turns, **kw)
+        if cfg.cli == "gemini":
+            from roundtable.providers.cli.gemini import GeminiCLI
+            kw.pop("use_api_key", None)
+            return GeminiCLI(name, **kw)
         raise ProviderUnavailable(f"{name}: unknown cli {cfg.cli!r}")
     from roundtable.providers import api
     if cfg.sdk == "anthropic":

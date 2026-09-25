@@ -23,8 +23,10 @@ grok login         # xAI
 ollama serve       # local models, then: ollama pull qwen3:30b-a3b
 ```
 
-No API keys are needed for those. API providers need the variable named in the config
-(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY`).
+No API keys are needed for those. Gemini is the exception: Google no longer lets this CLI use a
+personal login, so both the Gemini CLI and the Gemini API provider need `GEMINI_API_KEY` from
+https://aistudio.google.com/apikey (free tier available). Other API providers need the variable
+named in the config (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`).
 
 ## First run
 
