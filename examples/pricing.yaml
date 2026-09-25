@@ -1,0 +1,11 @@
+# USD per million tokens. Keys match by exact model name, then by longest prefix.
+# Unknown models are recorded with cost NULL; the report never invents a number.
+# Fill these in from each vendor's pricing page; the values below are placeholders
+# marked with a comment and should be verified before relying on the cost column.
+models:
+  claude-fable-5-1:   { input: 15.0, cached_input: 1.5, output: 75.0 }   # verify
+  claude-opus-5-5:    { input: 15.0, cached_input: 1.5, output: 75.0 }   # verify
+  claude-sonnet-5:    { input: 3.0,  cached_input: 0.3, output: 15.0 }   # verify
+  claude-haiku-4-5:   { input: 1.0,  cached_input: 0.1, output: 5.0 }    # verify
+  qwen3:              { input: 0.0, output: 0.0 }                       # local
+  qwen2.5-coder:      { input: 0.0, output: 0.0 }                       # local

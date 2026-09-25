@@ -1,0 +1,49 @@
+# Roundtable project config. `${VAR}` and `${VAR:-default}` expand from the environment.
+project:
+  name: dd-demo
+  objective: >
+    Implement max_drawdown(equity: list[float]) -> float in dd.py, returning the largest
+    peak-to-trough decline as a positive fraction (0.0 if none), with pytest tests.
+  requirements:
+    - "Returns 0.0 for monotonically increasing or empty series"
+    - "Handles a series that ends at its trough"
+    - "Pure Python, no third-party dependencies"
+  # repo: ~/some/project     # any directory or git repo; omit for a greenfield task
+
+autonomy: 2
+runs_dir: ../runs
+pricing: pricing.yaml
+
+budget:
+  max_rounds: 3
+  max_fix_rounds: 1
+  max_calls: 12
+  max_tokens: 400000
+  max_cost_usd: 5.00
+  max_seconds: 1800
+
+providers:
+  claude_cli: { type: cli, cli: claude }          # claude.ai subscription login
+  codex_cli:  { type: cli, cli: codex }           # ChatGPT login
+  grok_cli:   { type: cli, cli: grok }            # xAI login
+  ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
+  anthropic:  { type: api, sdk: anthropic,     api_key_env: ANTHROPIC_API_KEY }
+  openai:     { type: api, sdk: openai_compat, api_key_env: OPENAI_API_KEY }
+  xai:        { type: api, sdk: openai_compat, api_key_env: XAI_API_KEY, base_url: https://api.x.ai/v1 }
+  gemini:     { type: api, sdk: gemini,        api_key_env: GEMINI_API_KEY }
+
+agents:
+  proposer:    { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
+  critic:      { provider: grok_cli,   model: "${ROUNDTABLE_GROK_MODEL:-}", effort: medium, timeout_s: 600 }
+  reviser:     { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
+  engineer:    { provider: codex_cli,  model: "${ROUNDTABLE_CODEX_MODEL:-}", timeout_s: 900 }
+  validator:   { provider: ollama,     model: "${ROUNDTABLE_OLLAMA_MODEL:-qwen3:30b-a3b}", timeout_s: 600 }
+  synthesizer: { provider: claude_cli, model: "${ROUNDTABLE_CLAUDE_MODEL:-}" }
+
+permissions:
+  proposer:    { workspace: none,  run_tests: false }
+  critic:      { workspace: read,  run_tests: false }
+  reviser:     { workspace: none,  run_tests: false }
+  engineer:    { workspace: write, run_tests: false }
+  validator:   { workspace: read,  run_tests: true }
+  synthesizer: { workspace: read,  run_tests: false }
