@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 ENV = ROOT / "cpanel" / "sftp.env"
 SKIP = {"deploy.py", ".DS_Store"}
+SKIP_DIRS = {"__pycache__", ".git"}
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -42,7 +43,7 @@ def main() -> int:
     sftp = paramiko.SFTPClient.from_transport(t)
     uploaded = []
     for local in sorted(SITE.rglob("*")):
-        if local.is_dir() or local.name in SKIP:
+        if local.is_dir() or local.name in SKIP or any(part in SKIP_DIRS for part in local.relative_to(SITE).parts):
             continue
         rel = local.relative_to(SITE).as_posix()
         dest = posixpath.join(remote, rel)
