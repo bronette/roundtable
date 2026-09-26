@@ -156,6 +156,16 @@ def commit_changes(ws: Workspace, message: str) -> tuple[str, str, list[str]]:
     return ws.git("rev-parse", "HEAD").strip(), diff, changed
 
 
+def cumulative_changes(ws: Workspace) -> tuple[str, list[str]]:
+    """Everything the run has changed so far: base commit → HEAD. Robust to fix rounds that change
+    nothing and to resumed runs; this is what reviewers and the report should see."""
+    if not ws.base_commit:
+        return "", []
+    diff = ws.git("diff", "--no-color", f"{ws.base_commit}..HEAD", check=False)
+    names = ws.git("diff", "--name-only", f"{ws.base_commit}..HEAD", check=False)
+    return diff, [n for n in names.splitlines() if n.strip()]
+
+
 _PYTEST_SUMMARY = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed)")
 
 

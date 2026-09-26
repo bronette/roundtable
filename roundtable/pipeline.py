@@ -133,12 +133,12 @@ class Pipeline:
                 st.critique_id = crits[-1]["id"]
         impls = self.store.implementations(run_id)
         if impls:
-            last = impls[-1]
-            body = json.loads(last["body_json"])
-            st.impl_id, st.changed_paths = last["id"], body.get("changed", [])
-            arts = json.loads(last["artifact_ids_json"])
-            if arts:
-                st.last_diff = self.store.artifact_text(run_id, arts[0], st.run_dir)
+            st.impl_id = impls[-1]["id"]
+            if st.ws is not None:
+                st.last_diff, st.changed_paths = actions.cumulative_changes(st.ws)
+            else:
+                body = json.loads(impls[-1]["body_json"])
+                st.changed_paths = body.get("changed", [])
         tests = self.store.test_runs(run_id)
         if tests:
             t = tests[-1]
@@ -234,7 +234,8 @@ class Pipeline:
             except actions.WorkspaceError as e:
                 raise ProviderError(f"engineer wrote outside workspace: {e}") from e
         commit, diff, changed = actions.commit_changes(ws, f"roundtable {st.run_id}: {stage.lower()} round {st.fix_round}")
-        st.last_diff, st.changed_paths = diff, changed
+        # reviewers and the report see the whole run's change, not just this round's
+        st.last_diff, st.changed_paths = actions.cumulative_changes(ws)
         art = self.store.add_artifact(st.run_id, call_id=res.call_id, kind="diff", name=f"{stage.lower()}{st.fix_round}.diff",
                                       content=diff or "(no changes)", artifacts_dir=st.run_dir / "artifacts")
         st.impl_id = self.store.add_implementation(st.run_id, call_id=res.call_id, proposal_id=st.proposal_id, fix_round=st.fix_round,

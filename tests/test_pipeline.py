@@ -385,3 +385,16 @@ def test_resume_from_forced_stage_reruns_tests(tmp_path):
     st2 = Pipeline(cfg, store, agents, on_event=lambda s, t: None).resume(st.run_id, from_stage=Stage.TEST)
     assert st2.status == "implemented" and len(store.test_runs(st.run_id)) == 2       # tests ran again, engineer did not
     assert [r["role"] for r in store.calls(st.run_id)][-2:] == ["validator", "synthesizer"]
+
+
+def test_validator_sees_cumulative_changes_even_when_fix_round_changes_nothing(tmp_path):
+    bad = IMPL_ANSWER | {"files": [{"path": "dd.py", "content": BAD_DD_PY}, {"path": "test_dd.py", "content": TEST_PY}]}
+    noop = IMPL_ANSWER | {"files": []}                     # engineer decides the failure is not its bug
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [Recording(bad), Recording(noop)],
+        "validator": [Recording(REVIEW_BAD, expects_prompt_contains=["def max_drawdown", "test_dd.py"])],   # still sees round-1 files
+        "synthesizer": [Recording(SYNTH | {"overall_verdict": "REJECT"})],
+    }, autonomy=2, max_fix_rounds=1)
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "tests_failing" and sorted(st.changed_paths) == ["dd.py", "test_dd.py"]
