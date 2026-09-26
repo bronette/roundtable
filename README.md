@@ -5,8 +5,8 @@ specialists through one Python orchestrator:
 propose → critique → revise → implement → test → review → synthesize. Every call is
 logged to SQLite. Agents exchange schema-validated JSON, never raw conversation.
 
-Status: **M2 complete**. Propose → critique → revise → implement → test → review → synthesize
-runs end to end. The engineer is a CLI agent working inside a per-run git worktree; the
+Status: **M3 complete**. Propose → critique → revise → implement → test → review → synthesize
+runs end to end; halted runs resume at the failed stage; transient errors retry with backoff. The engineer is a CLI agent working inside a per-run git worktree; the
 orchestrator commits its diff, runs the tests, and a separate model validates each locked
 acceptance criterion against the real output. Nothing is merged without you.
 
@@ -41,7 +41,9 @@ uv run roundtable providers -c examples/project.yaml          # what can run rig
 uv run roundtable run examples/project.yaml                    # the pipeline; writes runs/<project>/<run>/report.md
 uv run roundtable runs -c examples/project.yaml                # recent runs
 uv run roundtable show <run_id> -c examples/project.yaml       # the report again
-uv run roundtable calls <run_id> -c examples/project.yaml --full   # the audit log: every prompt, reply, token count
+uv run roundtable resume <run_id> --max-calls 24              # continue a halted run where it stopped
+uv run roundtable calls <run_id> --failed                      # the audit log, filtered
+uv run roundtable call-show <call_id>                          # one call in full
 uv run roundtable call proposer "Is 17 prime?" -c examples/project.yaml   # one role, one prompt
 uv run pytest
 ```
@@ -88,7 +90,7 @@ roundtable/
     cli/           claude, codex, grok subprocess adapters (subscription auth)
     api.py         anthropic, openai_compat (OpenAI + xAI), gemini, ollama
     recorded.py    canned outputs + prompt guards for offline tests
-  cli.py           roundtable run | runs | show | calls | call | providers
+  cli.py           roundtable run | resume | runs | show | calls | call-show | call | providers
 examples/          project.yaml, pricing.yaml
 runs/              per-project SQLite DB and per-run workspaces (gitignored)
 ```

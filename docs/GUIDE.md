@@ -111,11 +111,37 @@ only block. No agent can declare victory or skip a stage.
 For the full audit trail:
 
 ```bash
-uv run roundtable calls <run_id> -c examples/project.yaml --full
+uv run roundtable calls <run_id> -c examples/project.yaml            # one line per call
+uv run roundtable calls <run_id> --failed                             # only invalid or errored attempts
+uv run roundtable calls <run_id> --role critic --json                 # filter, machine-readable
+uv run roundtable call-show <call_id>                                 # one call in full: messages, reply, command line
 ```
 
-prints every call: role, provider, model, attempt, the exact messages the model received, its
-reply, tokens, latency, and cost.
+Every call shows role, provider, model, attempt, tokens, latency, and cost with its source:
+`table` when the model is in `pricing.yaml`, `reported` when the CLI supplied its own estimate.
+
+## Resuming a halted run
+
+A run that halted (budget, provider outage, usage limit, invalid output twice) can be restarted
+at the stage that failed. Nothing completed is repeated or paid for again: the proposals,
+critiques, locked criteria, workspace, commits, and test results are all reloaded from the
+database, and the run continues from there.
+
+```bash
+uv run roundtable resume <run_id> -c examples/project.yaml
+uv run roundtable resume <run_id> --max-calls 24 --max-cost 10      # raise caps if the halt was a budget
+```
+
+Budget counters continue from the run's recorded usage, so a budget halt needs a higher cap
+to make progress. A resumed run records "resumed by operator" in its decisions and rewrites
+the report at the end. Finished runs cannot be resumed.
+
+## Retries
+
+Transient provider errors (timeouts, 5xx, dropped streams) are retried with backoff, three
+seconds then nine then twenty-seven, up to `retries` times per seat (default 2). Every failed
+attempt is in the audit log with its error. Usage-limit errors, missing keys or binaries, and
+invalid output are not retried: those go to the repair round or the fallback provider instead.
 
 ## Working on an existing project
 

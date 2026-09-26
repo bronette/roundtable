@@ -76,3 +76,63 @@ def test_no_fallback_still_raises(store, run):
               billing="api", pricing=Pricing())
     with pytest.raises(SchemaError):
         a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+
+
+def _raising_provider(errors, then=None, name="p"):
+    """A provider that raises the given exceptions in order, then answers."""
+    from roundtable.providers.base import Completion, Usage
+    class P:
+        def __init__(self):
+            self.name = name; self.calls = 0
+        def run(self, messages, **kw):
+            self.calls += 1
+            if self.calls <= len(errors):
+                raise errors[self.calls - 1]
+            return Completion(text='{"answer":"a","reasoning_summary":"r","confidence":0.5}',
+                              parsed={"answer": "a", "reasoning_summary": "r", "confidence": 0.5},
+                              usage=Usage(10, 5), provider=name, model="m", latency_ms=1)
+    return P()
+
+
+def test_transient_errors_are_retried_and_logged(store, run):
+    from roundtable.providers.base import ProviderError
+    p = _raising_provider([ProviderError("503 UNAVAILABLE"), ProviderError("timed out")])
+    a = Agent("critic", AgentCfg(provider="p", retries=2), p, billing="api", pricing=Pricing())
+    res = a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+    assert res.output.answer == "a" and res.attempts == 3 and p.calls == 3
+    rows = store.calls(run)
+    assert [r["valid"] for r in rows] == [0, 0, 1]
+    assert "503" in rows[0]["error"] and rows[1]["attempt"] == 2 and rows[2]["attempt"] == 3
+
+
+def test_retries_exhausted_raises(store, run):
+    from roundtable.providers.base import ProviderError
+    p = _raising_provider([ProviderError("x")] * 3)
+    a = Agent("critic", AgentCfg(provider="p", retries=1), p, billing="api", pricing=Pricing())
+    with pytest.raises(ProviderError):
+        a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+    assert p.calls == 2
+
+
+def test_usage_limit_and_unavailable_are_not_retried(store, run):
+    from roundtable.providers.base import ProviderUnavailable, UsageLimitError
+    for exc in (UsageLimitError("quota"), ProviderUnavailable("no key")):
+        p = _raising_provider([exc])
+        a = Agent("critic", AgentCfg(provider="p", retries=3), p, billing="api", pricing=Pricing())
+        with pytest.raises(type(exc)):
+            a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+        assert p.calls == 1
+
+
+def test_cost_falls_back_to_reported_estimate(store, run):
+    from roundtable.providers.base import Completion, Usage
+    rec = RecordedProvider([Recording({"answer": "a", "reasoning_summary": "r", "confidence": 0.5}, model="grok-x")])
+    orig = rec.run
+    def run_with_estimate(messages, **kw):
+        c = orig(messages, **kw); c.reported_cost_usd = 0.0135; return c
+    rec.run = run_with_estimate
+    a = Agent("critic", AgentCfg(provider="rec"), rec, billing="subscription", pricing=Pricing())
+    a.call(store=store, run_id=run, stage="CRITIQUE", system="S", prompt="P", schema=Answer)
+    row = store.calls(run)[0]
+    assert row["cost_usd"] == pytest.approx(0.0135) and row["cost_source"] == "reported"
+    assert store.usage(run)["total"]["cost_known"] is True

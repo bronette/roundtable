@@ -881,3 +881,19 @@ Lessons:
 - Agents leave `__pycache__` and `.pytest_cache` in the worktree; excluded via `info/exclude`.
 - Answer-mode agents mention their scratch cwd unless told to ignore it.
 - A clean four-round run uses exactly 12 calls; example `max_calls` raised to 16.
+
+
+### 2026-09-25 — M3 shipped
+
+- `resume <run_id>`: rebuilds run state from SQLite (workspace, latest proposal and its critique,
+  implementation, test result, diff) and restarts at the stage whose decision says "halted:".
+  A critique already recorded for the current proposal is applied, not re-run. Budget counters
+  continue from recorded usage; caps can be raised on the command line.
+- Retries with backoff (3/9/27 s) for transient `ProviderError`s; every attempt logged. Usage
+  limits, missing credentials and schema failures are not retried.
+- Cost: table price when known, else the CLI's reported estimate (`cost_source` column), so
+  Claude and Grok subscription calls now carry a figure and `max_cost_usd` can bite.
+  Anthropic list prices filled in from the model table (cached 2026-06-24).
+- `calls --role/--stage/--failed/--json`, `call-show <call_id>`.
+- Also this session: Gemini (API key; CLI with isolated home) and Antigravity (`agy`, Google AI
+  Pro login) providers, verified live. 62 tests.

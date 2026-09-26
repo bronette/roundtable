@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS runs (
   stage TEXT NOT NULL, status TEXT NOT NULL,
   round INTEGER NOT NULL DEFAULT 0, fix_round INTEGER NOT NULL DEFAULT 0,
   workspace_path TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, halt_reason TEXT,
-  acceptance_json TEXT, acceptance_hash TEXT, acceptance_locked_at TEXT);
+  acceptance_json TEXT, acceptance_hash TEXT, acceptance_locked_at TEXT, ws_json TEXT);
 
 CREATE TABLE IF NOT EXISTS agent_calls (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS agent_calls (
   response_text TEXT, parsed_json TEXT, schema_name TEXT,
   valid INTEGER NOT NULL, error TEXT,
   input_tokens INTEGER, output_tokens INTEGER, cached_input_tokens INTEGER, reasoning_tokens INTEGER,
-  cost_usd REAL, reported_cost_usd REAL, billing TEXT NOT NULL DEFAULT 'api',
+  cost_usd REAL, reported_cost_usd REAL, cost_source TEXT, billing TEXT NOT NULL DEFAULT 'api',
   latency_ms INTEGER, request_id TEXT,
   started_at TEXT NOT NULL, finished_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_calls_run ON agent_calls(run_id, started_at);
@@ -112,6 +112,17 @@ class Store:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(DDL)
+        self._migrate()
+
+    # columns added after the first release; CREATE TABLE IF NOT EXISTS does not add them to old files
+    MIGRATIONS = {"runs": {"ws_json": "TEXT"}, "agent_calls": {"cost_source": "TEXT"}}
+
+    def _migrate(self) -> None:
+        for table, cols in self.MIGRATIONS.items():
+            have = {r["name"] for r in self.db.execute(f"PRAGMA table_info({table})")}
+            for col, typ in cols.items():
+                if col not in have:
+                    self.db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
 
     def close(self) -> None:
         self.db.close()
@@ -139,6 +150,24 @@ class Store:
         if fix_round is not None:
             self.db.execute("UPDATE runs SET fix_round=? WHERE id=?", (fix_round, run_id))
 
+    def set_ws(self, run_id: str, ws: dict[str, Any]) -> None:
+        self.db.execute("UPDATE runs SET ws_json=?, workspace_path=? WHERE id=?", (dumps(ws), ws["path"], run_id))
+
+    def reopen_run(self, run_id: str, stage: str) -> None:
+        self.db.execute("UPDATE runs SET status='running', finished_at=NULL, halt_reason=NULL, stage=? WHERE id=?", (stage, run_id))
+
+    def call(self, call_id: str) -> sqlite3.Row | None:
+        return self.db.execute("SELECT * FROM agent_calls WHERE id=?", (call_id,)).fetchone()
+
+    def artifact_text(self, run_id: str, artifact_id: str, run_dir: Path) -> str:
+        r = self.db.execute("SELECT path FROM artifacts WHERE run_id=? AND id=?", (run_id, artifact_id)).fetchone()
+        if not r:
+            return ""
+        try:
+            return (run_dir / r["path"]).read_text()
+        except OSError:
+            return ""
+
     def finish_run(self, run_id: str, status: str, halt_reason: str | None = None) -> None:
         self.db.execute("UPDATE runs SET status=?, finished_at=?, halt_reason=? WHERE id=?",
                         (status, now_iso(), halt_reason, run_id))
@@ -152,7 +181,7 @@ class Store:
         self, *, run_id: str, stage: str, role: str, provider: str, model: str, attempt: int,
         messages: list[Message], context_refs: list[str], schema_name: str | None,
         completion: Completion | None, valid: bool, error: str | None,
-        cost_usd: float | None, billing: str, started_at: str,
+        cost_usd: float | None, billing: str, started_at: str, cost_source: str | None = None,
     ) -> str:
         cid = new_id("call")
         messages_json = dumps([{"role": m.role, "content": m.content} for m in messages])
@@ -160,16 +189,16 @@ class Store:
         self.db.execute(
             """INSERT INTO agent_calls (id, run_id, stage, role, provider, model, attempt, prompt_hash,
                messages_json, context_refs_json, argv_json, response_text, parsed_json, schema_name, valid, error,
-               input_tokens, output_tokens, cached_input_tokens, reasoning_tokens, cost_usd, reported_cost_usd,
+               input_tokens, output_tokens, cached_input_tokens, reasoning_tokens, cost_usd, reported_cost_usd, cost_source,
                billing, latency_ms, request_id, started_at, finished_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (cid, run_id, stage, role, provider, model, attempt, sha256_text(messages_json),
              messages_json, dumps(context_refs), dumps(c.argv) if c and c.argv else None,
              c.text if c else None, dumps(c.parsed) if c and c.parsed is not None else None, schema_name,
              int(valid), error,
              c.usage.input_tokens if c else None, c.usage.output_tokens if c else None,
              c.usage.cached_input_tokens if c else None, c.usage.reasoning_tokens if c else None,
-             cost_usd, c.reported_cost_usd if c else None, billing,
+             cost_usd, c.reported_cost_usd if c else None, cost_source, billing,
              c.latency_ms if c else None, c.request_id if c else None, started_at, now_iso()))
         if c is not None:
             self.db.execute(

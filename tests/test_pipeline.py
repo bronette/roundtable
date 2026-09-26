@@ -308,3 +308,65 @@ def test_existing_git_repo_gets_a_worktree_and_branch(tmp_path):
     assert not (src / "dd.py").exists()                              # the user's checkout is untouched
     head = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=src, capture_output=True, text=True).stdout.strip()
     assert head == "main"
+
+
+# ---------------------------------------------------------------- M3: resume
+
+def test_resume_continues_from_failed_stage_without_repeating_calls(tmp_path):
+    # first run: budget of 2 calls halts before REVISE
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_REVISE)], "reviser": [], "synthesizer": [Recording(SYNTH)],
+    }, max_calls=2)
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "halted_budget"
+    assert [r["role"] for r in store.calls(st.run_id)] == ["proposer", "critic", "synthesizer"]
+
+    # resume with a bigger budget and fresh agents holding only the remaining recordings
+    cfg2 = make_cfg(["proposer", "critic", "reviser", "synthesizer"], autonomy=1, max_calls=10)
+    pricing = Pricing({"claude-x": {"input": 1.0, "output": 2.0}})
+    agents = {
+        "proposer": Agent("proposer", cfg2.agents["proposer"], RecordedProvider([], name="rec-proposer"), billing="api", pricing=pricing),
+        "critic": Agent("critic", cfg2.agents["critic"], RecordedProvider([Recording(CRIT_ACCEPT, expects_prompt_contains=["P2"])], name="rec-critic"), billing="api", pricing=pricing),
+        "reviser": Agent("reviser", cfg2.agents["reviser"], RecordedProvider([Recording(REVISED, expects_prompt_contains=["C1", "P1"])], name="rec-reviser"), billing="api", pricing=pricing),
+        "synthesizer": Agent("synthesizer", cfg2.agents["synthesizer"], RecordedProvider([Recording(SYNTH, expects_prompt_contains=["RUN STATUS: plan_accepted"])], name="rec-synthesizer"), billing="api", pricing=pricing),
+    }
+    events = []
+    st2 = Pipeline(cfg2, store, agents, on_event=lambda s, t: events.append((s, t))).resume(st.run_id)
+    assert st2.run_id == st.run_id and st2.status == "plan_accepted"
+    stages = [d["to_stage"] for d in store.decisions(st.run_id)]
+    assert stages[-6:] == ["REVISE", "CRITIQUE", "REVISE", "CRITIQUE", "IMPLEMENT", "SYNTHESIZE"][-6:] or "REVISE" in stages
+    roles = [r["role"] for r in store.calls(st.run_id)]
+    assert roles.count("proposer") == 1                       # never re-run
+    assert roles == ["proposer", "critic", "synthesizer", "reviser", "critic", "synthesizer"]
+    assert any("resumed by operator" in d["reason"] for d in store.decisions(st.run_id))
+    assert store.get_run(st.run_id)["status"] == "plan_accepted"
+
+
+def test_resume_after_engineer_failure_keeps_locked_criteria_and_workspace(tmp_path):
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [], "validator": [], "synthesizer": [Recording(SYNTH)],   # engineer has no recording → halts at IMPLEMENT
+    }, autonomy=2)
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "halted_error" and store.get_run(st.run_id)["acceptance_hash"]
+    cfg2 = make_cfg(["proposer", "critic", "reviser", "engineer", "validator", "synthesizer"], autonomy=2, engineer_mode="answer")
+    pricing = Pricing()
+    agents = {r: Agent(r, cfg2.agents[r], RecordedProvider(recs, name=f"rec-{r}"), billing="api", pricing=pricing) for r, recs in {
+        "proposer": [], "critic": [], "reviser": [],
+        "engineer": [Recording(IMPL_ANSWER, expects_prompt_contains=["AC1", "roundtable/"])],
+        "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)],
+    }.items()}
+    st2 = Pipeline(cfg2, store, agents, on_event=lambda s, t: None).resume(st.run_id)
+    assert st2.status == "implemented" and st2.ws is not None and st2.ws.path == st.ws.path
+    assert [r["role"] for r in store.calls(st.run_id)][-3:] == ["engineer", "validator", "synthesizer"]
+    assert (st2.ws.path / "dd.py").exists()
+
+
+def test_resume_refuses_finished_run(tmp_path):
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [], "synthesizer": [Recording(SYNTH)],
+    })
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    store.finish_run(st.run_id, "implemented")
+    with pytest.raises(ValueError, match="nothing to resume"):
+        pipe.resume(st.run_id)

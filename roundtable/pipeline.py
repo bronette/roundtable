@@ -82,7 +82,74 @@ class Pipeline:
         run_dir = runs_dir / p.name / run_id
         st = RunState(run_id=run_id, workspace=run_dir / "workspace")
         self.store.db.execute("UPDATE runs SET workspace_path=? WHERE id=?", (str(st.workspace), run_id))
-        stage = Stage.INIT
+        return self._loop(st, Stage.INIT)
+
+    def resume(self, run_id: str) -> RunState:
+        """Restart a halted run at the stage that failed. Earlier calls are not repeated or re-billed;
+        budget counters continue from the run's recorded usage, so raise the caps if the halt was a budget."""
+        run = self.store.get_run(run_id)
+        if run is None:
+            raise ValueError(f"no run {run_id}")
+        if run["status"] == "done" or run["status"] in ("implemented", "implemented_with_objections"):
+            raise ValueError(f"run {run_id} finished with status {run['status']}; nothing to resume")
+        failed_stage = None
+        for d in reversed(self.store.decisions(run_id)):
+            if d["reason"].startswith("halted:"):
+                failed_stage = Stage(d["from_stage"])
+                break
+        if failed_stage is None:
+            failed_stage = Stage(run["stage"]) if run["stage"] in Stage.__members__ else Stage.SYNTHESIZE
+        if failed_stage in (Stage.SYNTHESIZE, Stage.DONE, Stage.HALTED):
+            failed_stage = Stage.SYNTHESIZE
+        st = self._rebuild_state(run)
+        self.store.reopen_run(run_id, failed_stage)
+        self.store.record_decision(run_id, Stage.HALTED, failed_stage, "resumed by operator", [])
+        self.on_event(Stage.HALTED, f"resuming {run_id} at {failed_stage} (round {st.round}, fix {st.fix_round})")
+        return self._loop(st, failed_stage)
+
+    def _rebuild_state(self, run) -> RunState:
+        run_id = run["id"]
+        st = RunState(run_id=run_id, workspace=Path(run["workspace_path"]), round=run["round"], fix_round=run["fix_round"])
+        if run["ws_json"]:
+            w = json.loads(run["ws_json"])
+            st.ws = actions.Workspace(Path(w["path"]), w["branch"], w["base_commit"],
+                                      Path(w["source_repo"]) if w.get("source_repo") else None, w["mode"])
+        elif run["workspace_path"] and (Path(run["workspace_path"]) / ".git").exists():
+            # runs recorded before ws_json existed: recover what git knows
+            ws = actions.Workspace(Path(run["workspace_path"]), f"roundtable/{run_id}", "", None, "greenfield")
+            try:
+                ws.base_commit = ws.git("rev-list", "--max-parents=0", "HEAD").strip().splitlines()[0]
+                ws.branch = ws.git("rev-parse", "--abbrev-ref", "HEAD").strip()
+            except actions.WorkspaceError:
+                pass
+            st.ws = ws
+        props = self.store.proposals(run_id)
+        if props:
+            st.proposal_id = props[-1]["id"]
+            crits = [c for c in self.store.critiques(run_id) if c["target_kind"] == "proposal" and c["target_id"] == st.proposal_id]
+            if crits:
+                st.critique_id = crits[-1]["id"]
+        impls = self.store.implementations(run_id)
+        if impls:
+            last = impls[-1]
+            body = json.loads(last["body_json"])
+            st.impl_id, st.changed_paths = last["id"], body.get("changed", [])
+            arts = json.loads(last["artifact_ids_json"])
+            if arts:
+                st.last_diff = self.store.artifact_text(run_id, arts[0], st.run_dir)
+        tests = self.store.test_runs(run_id)
+        if tests:
+            t = tests[-1]
+            st.test_id = t["id"]
+            st.last_test = {"command": t["command"], "exit_code": t["exit_code"], "passed": t["passed"], "failed": t["failed"],
+                            "errors": t["errors"], "duration_s": t["duration_s"], "timed_out": bool(t["timed_out"]),
+                            "stdout_tail": self.store.artifact_text(run_id, t["output_artifact_id"], st.run_dir) if t["output_artifact_id"] else ""}
+            if t["exit_code"] == 0:
+                st.status = "implemented"
+        return st
+
+    def _loop(self, st: RunState, stage: Stage) -> RunState:
+        run_id = st.run_id
         while stage != Stage.DONE:
             handler = self.HANDLERS[stage]
             try:
@@ -125,6 +192,8 @@ class Pipeline:
             st.ws = actions.prepare_workspace(st.run_dir, self.cfg.project.repo, st.run_id)
         except actions.WorkspaceError as e:
             raise ProviderError(f"workspace: {e}") from e
+        self.store.set_ws(st.run_id, {"path": str(st.ws.path), "branch": st.ws.branch, "base_commit": st.ws.base_commit,
+                                      "source_repo": str(st.ws.source_repo) if st.ws.source_repo else None, "mode": st.ws.mode})
         return Stage.PROPOSE, f"workspace ready ({st.ws.mode}, branch {st.ws.branch})", []
 
     # ---- engineering stages
@@ -246,6 +315,11 @@ class Pipeline:
         pid = st.proposal_id
         assert pid
         body = self.store.proposal(st.run_id, pid)
+        existing = [c for c in self.store.critiques(st.run_id) if c["target_kind"] == "proposal" and c["target_id"] == pid]
+        if existing:   # resumed after the critique was already recorded: apply its verdict instead of paying again
+            crit = Critique.model_validate(json.loads(existing[-1]["body_json"]))
+            st.critique_id = existing[-1]["id"]
+            return self._apply_verdict(st, pid, st.critique_id, crit)
         prompt = context.critic_pack(p.objective, p.requirements, pid, body)
         res = self._call(st, "critic", Stage.CRITIQUE, prompt, Critique, [pid])
         crit: Critique = res.output  # type: ignore[assignment]
@@ -255,7 +329,11 @@ class Pipeline:
         self.store.set_proposal_status(st.run_id, pid, "criticized")
         n_block = sum(1 for x in crit.problems if x.severity == "blocker")
         self.on_event(Stage.CRITIQUE, f"{cid} on {pid} → {crit.verdict}  ({len(crit.problems)} problems, {n_block} blockers)")
+        return self._apply_verdict(st, pid, cid, crit)
+
+    def _apply_verdict(self, st: RunState, pid: str, cid: str, crit: Critique) -> Transition:
         refs = [pid, cid]
+        body = self.store.proposal(st.run_id, pid)
         if self.cfg.autonomy == 0:
             st.status, st.halt_reason = "advised", "autonomy level 0: advise only"
             return Stage.SYNTHESIZE, f"{cid} {crit.verdict}; stopping at autonomy 0", refs

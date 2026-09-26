@@ -3,6 +3,7 @@ attempt on schema failure, and logs every attempt to the store."""
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from roundtable.config import AgentCfg, Config
 from roundtable.pricing import Pricing
 from roundtable.providers import build_provider
-from roundtable.providers.base import Completion, Message, Provider, ProviderError, SchemaError, validate_output
+from roundtable.providers.base import Completion, Message, Provider, ProviderError, ProviderUnavailable, SchemaError, UsageLimitError, validate_output
 from roundtable.store import Store
 from roundtable.util import now_iso
 
@@ -22,6 +23,27 @@ class CallResult:
     completion: Completion
     output: BaseModel | None
     attempts: int
+
+
+BACKOFF_S = (3.0, 9.0, 27.0)
+_sleep = time.sleep   # patched in tests
+
+
+def _transient(e: Exception) -> bool:
+    """Worth retrying: timeouts, 5xx, disconnects. Not: usage limits, missing binaries/keys, bad schemas."""
+    if isinstance(e, (UsageLimitError, ProviderUnavailable, SchemaError)):
+        return False
+    return isinstance(e, ProviderError)
+
+
+def priced_cost(pricing: Pricing, completion: Completion) -> tuple[float | None, str | None]:
+    """Table price when the model is known; else the vendor's own estimate; else unknown."""
+    c = pricing.cost(completion.model, completion.usage)
+    if c is not None:
+        return c, "table"
+    if completion.reported_cost_usd is not None:
+        return float(completion.reported_cost_usd), "reported"
+    return None, None
 
 
 class Agent:
@@ -65,35 +87,45 @@ class Agent:
         messages = [Message("system", system), Message("user", prompt)]
         refs = context_refs or []
         last_error: str | None = None
-        for attempt in (1, 2):
-            started = now_iso()
-            completion: Completion | None = None
-            output: BaseModel | None = None
-            error: str | None = None
-            try:
-                completion = self.provider.run(
-                    messages, schema=schema, temperature=self.cfg.temperature,
-                    max_tokens=self.cfg.max_tokens, timeout_s=self.cfg.timeout_s, effort=self.cfg.effort,
-                    workspace=workspace, max_turns=self.cfg.max_turns)
-                if schema is not None:
-                    if completion.parsed is None:
-                        raise SchemaError("provider returned no JSON object")
-                    output = validate_output(schema, completion.parsed)
-            except SchemaError as e:
-                error = f"schema: {e}"
-            except Exception:
-                store.record_call(run_id=run_id, stage=stage, role=self.role, provider=self.provider.name,
-                                  model=self.cfg.model or "?", attempt=attempt, messages=messages,
-                                  context_refs=refs, schema_name=schema.__name__ if schema else None,
-                                  completion=None, valid=False, error="provider error", cost_usd=None,
-                                  billing=self.billing, started_at=started)
-                raise
-            cost = self.pricing.cost(completion.model, completion.usage) if completion else None
+        attempt = 0
+        for schema_round in (1, 2):
+            transient_left = self.cfg.retries
+            while True:
+                attempt += 1
+                started = now_iso()
+                completion: Completion | None = None
+                output: BaseModel | None = None
+                error: str | None = None
+                try:
+                    completion = self.provider.run(
+                        messages, schema=schema, temperature=self.cfg.temperature,
+                        max_tokens=self.cfg.max_tokens, timeout_s=self.cfg.timeout_s, effort=self.cfg.effort,
+                        workspace=workspace, max_turns=self.cfg.max_turns)
+                    if schema is not None:
+                        if completion.parsed is None:
+                            raise SchemaError("provider returned no JSON object")
+                        output = validate_output(schema, completion.parsed)
+                except SchemaError as e:
+                    error = f"schema: {e}"
+                except Exception as e:  # noqa: BLE001
+                    store.record_call(run_id=run_id, stage=stage, role=self.role, provider=self.provider.name,
+                                      model=self.cfg.model or "?", attempt=attempt, messages=messages,
+                                      context_refs=refs, schema_name=schema.__name__ if schema else None,
+                                      completion=None, valid=False, error=f"{type(e).__name__}: {str(e)[:500]}",
+                                      cost_usd=None, billing=self.billing, started_at=started)
+                    if _transient(e) and transient_left > 0:
+                        delay = BACKOFF_S[min(self.cfg.retries - transient_left, len(BACKOFF_S) - 1)]
+                        transient_left -= 1
+                        _sleep(delay)
+                        continue
+                    raise
+                break
+            cost, cost_source = priced_cost(self.pricing, completion) if completion else (None, None)
             call_id = store.record_call(
                 run_id=run_id, stage=stage, role=self.role, provider=self.provider.name,
                 model=completion.model if completion else (self.cfg.model or "?"), attempt=attempt,
                 messages=messages, context_refs=refs, schema_name=schema.__name__ if schema else None,
-                completion=completion, valid=error is None, error=error, cost_usd=cost,
+                completion=completion, valid=error is None, error=error, cost_usd=cost, cost_source=cost_source,
                 billing=self.billing, started_at=started)
             if error is None:
                 return CallResult(call_id, completion, output, attempt)  # type: ignore[arg-type]

@@ -90,6 +90,7 @@ class AgentCfg(BaseModel):
     max_tokens: int = 4096
     timeout_s: float = 300.0
     effort: Literal["low", "medium", "high"] | None = None   # reasoning effort where the backend supports it
+    retries: int = Field(default=2, ge=0)                    # extra attempts on transient provider errors (timeouts, 5xx, disconnects)
     fallback: str | None = None                              # provider to use when this one fails twice (logged; report shows who answered)
     mode: Literal["answer", "agent"] | None = None           # engineer only; default: agent for cli providers, answer otherwise
     max_turns: int = 40                                      # agent mode: tool-use turns allowed per call

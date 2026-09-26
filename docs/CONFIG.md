@@ -85,8 +85,9 @@ Every cap is checked before each model call. When one trips the run halts, the s
 allowed one call for the report, and the report says which cap tripped. Repair attempts (a
 second call after invalid JSON) count toward `max_calls` and `max_tokens`.
 
-`max_cost_usd` is enforced only when every model used has an entry in the pricing table;
-otherwise the report shows "partly unknown" rather than an invented figure.
+`max_cost_usd` is enforced when every call has a cost: from the pricing table, or from the
+CLI's own estimate when the model is not in the table (Claude Code and Grok report one). A call
+with neither leaves the total "partly unknown" and the cost cap is not enforced for that run.
 
 ## `providers`
 
@@ -113,6 +114,7 @@ otherwise the report shows "partly unknown" rather than an invented figure.
 | `max_tokens` | 4096 | Output cap for API providers. |
 | `timeout_s` | 300 | Wall-clock limit per call. Grok critiques take 2 to 4 minutes; engineers in agent mode may need 900+. |
 | `effort` | none | `low`, `medium`, `high`. Maps to `grok --reasoning-effort` and codex `model_reasoning_effort`. Ignored elsewhere. |
+| `retries` | 2 | Extra attempts on transient provider errors (timeouts, 5xx, disconnects), with backoff of 3, 9, 27 seconds. Not applied to usage limits, missing credentials, or invalid output. |
 | `fallback` | none | Another provider key. If this seat's provider fails (invalid JSON twice, timeout, outage), the fallback answers the same prompt. The failed attempts stay in the audit log under the original provider and the report records who actually answered. |
 | `mode` | auto | Engineer only. `agent`: the CLI runs inside the worktree with tools and edits files itself. `answer`: the model returns complete files as JSON and the orchestrator writes them. Auto picks `agent` for cli providers, `answer` for api providers. |
 | `max_turns` | 40 | Agent mode: tool-use turns allowed in one engineer call. |

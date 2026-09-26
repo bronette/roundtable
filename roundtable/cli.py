@@ -92,18 +92,27 @@ def call(
 
 @app.command()
 def calls(run_id: str, config: Path = typer.Option("project.yaml", "--config", "-c"),
-          full: bool = typer.Option(False, "--full", help="Print full prompts and responses.")):
+          full: bool = typer.Option(False, "--full", help="Print full prompts and responses."),
+          role: str | None = typer.Option(None, "--role"), stage: str | None = typer.Option(None, "--stage"),
+          failed: bool = typer.Option(False, "--failed", help="Only invalid or errored attempts."),
+          as_json: bool = typer.Option(False, "--json", help="One JSON object per line.")):
     """Show every agent call in a run: who, what model, what it saw, what it produced, what it cost."""
     cfg = _load(config)
     store = _store_for(cfg)
     rows = store.calls(run_id)
+    rows = [r for r in rows if (not role or r["role"] == role) and (not stage or r["stage"] == stage) and (not failed or not r["valid"])]
     if not rows:
-        console.print(f"no calls for run {run_id}")
+        console.print(f"no matching calls for run {run_id}")
         raise typer.Exit(1)
+    if as_json:
+        for r in rows:
+            print(json.dumps(dict(r)))
+        return
     for r in rows:
         console.rule(f"{r['id']}  {r['stage']}/{r['role']}  {r['provider']}/{r['model']}  attempt {r['attempt']}  "
                      f"{'valid' if r['valid'] else 'INVALID'}")
-        console.print(f"in={r['input_tokens']} out={r['output_tokens']} cost={r['cost_usd']} "
+        cost = f"${r['cost_usd']:.4f} ({r['cost_source']})" if r["cost_usd"] is not None else "unknown"
+        console.print(f"in={r['input_tokens']} out={r['output_tokens']} cost={cost} "
                       f"billing={r['billing']} latency={r['latency_ms']}ms refs={r['context_refs_json']}")
         if r["error"]:
             console.print(f"[red]error:[/red] {r['error']}")
@@ -183,3 +192,77 @@ def runs(config: Path = typer.Option("project.yaml", "--config", "-c"), limit: i
     for r in store.runs(limit):
         t.add_row(r["id"], r["started_at"], r["status"], r["stage"], str(r["round"]), (r["objective"] or "")[:60].strip())
     console.print(t)
+
+
+@app.command()
+def resume(run_id: str, config: Path = typer.Option("project.yaml", "--config", "-c"),
+           max_calls: int | None = typer.Option(None, "--max-calls"), max_tokens: int | None = typer.Option(None, "--max-tokens"),
+           max_cost: float | None = typer.Option(None, "--max-cost"), max_seconds: int | None = typer.Option(None, "--max-seconds")):
+    """Restart a halted run at the stage that failed. Completed calls are not repeated or re-billed.
+    Budget counters continue from the run's usage; raise a cap here if the halt was a budget."""
+    from roundtable.agents import Agent
+    from roundtable.pipeline import Pipeline
+
+    cfg = _load(config)
+    for k, v in (("max_calls", max_calls), ("max_tokens", max_tokens), ("max_cost_usd", max_cost), ("max_seconds", max_seconds)):
+        if v is not None:
+            setattr(cfg.budget, k, v)
+    pricing = Pricing.load(cfg.resolve_path(cfg.pricing) if cfg.pricing else None)
+    store = _store_for(cfg)
+    if not store.get_run(run_id):
+        console.print(f"no run {run_id}")
+        raise typer.Exit(1)
+    try:
+        agents = {role: Agent.from_config(role, cfg, pricing) for role in cfg.agents}
+    except ProviderError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(2)
+
+    def on_event(stage: str, text: str) -> None:
+        console.print(f"[dim][{stage:<10}][/dim] {text}")
+
+    try:
+        st = Pipeline(cfg, store, agents, on_event=on_event).resume(run_id)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    console.rule(f"run {st.run_id}: {st.status}")
+    if st.synthesis:
+        console.print(f"verdict: [bold]{st.synthesis.overall_verdict}[/bold]  {st.synthesis.what_was_built}")
+    u = store.usage(st.run_id)["total"]
+    console.print(f"{u['calls']} calls, {u['tokens']} tokens, cost={'$%.4f' % u['cost_usd'] if u['cost_known'] else 'partly unknown'}")
+    console.print(f"report: {st.report_path}")
+
+
+@app.command("call-show")
+def call_show(call_id: str, config: Path = typer.Option("project.yaml", "--config", "-c"),
+              as_json: bool = typer.Option(False, "--json", help="Print the row as JSON.")):
+    """Everything about one agent call: the exact messages, the reply, the command line, tokens, cost."""
+    cfg = _load(config)
+    store = _store_for(cfg)
+    r = store.call(call_id)
+    if not r:
+        console.print(f"no call {call_id}")
+        raise typer.Exit(1)
+    row = dict(r)
+    if as_json:
+        console.print_json(json.dumps(row))
+        return
+    console.rule(f"{row['id']}  run {row['run_id']}  {row['stage']}/{row['role']}  attempt {row['attempt']}")
+    console.print(f"provider={row['provider']} model={row['model']} billing={row['billing']} valid={bool(row['valid'])}")
+    console.print(f"tokens in={row['input_tokens']} cached={row['cached_input_tokens']} out={row['output_tokens']} "
+                  f"reasoning={row['reasoning_tokens']} latency={row['latency_ms']}ms")
+    cost = f"${row['cost_usd']:.4f} ({row['cost_source']})" if row["cost_usd"] is not None else "unknown"
+    console.print(f"cost={cost} reported={row['reported_cost_usd']} request_id={row['request_id']}")
+    console.print(f"started={row['started_at']} finished={row['finished_at']} schema={row['schema_name']} refs={row['context_refs_json']}")
+    if row["error"]:
+        console.print(f"[red]error:[/red] {row['error']}")
+    if row["argv_json"]:
+        console.print("[bold]command[/bold]")
+        console.print(" ".join(json.loads(row["argv_json"])))
+    console.print("[bold]messages[/bold]")
+    for m in json.loads(row["messages_json"]):
+        console.rule(m["role"], style="dim")
+        console.print(m["content"])
+    console.rule("response", style="dim")
+    console.print(row["parsed_json"] or row["response_text"] or "(none)")

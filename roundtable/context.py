@@ -85,7 +85,7 @@ def engineer_pack(objective: str, requirements: list[str], proposal_id: str, pro
              f"\nACCEPTED PROPOSAL {proposal_id}:\n" + evidence_block(proposal_id, "proposal", plan),
              "\nLOCKED ACCEPTANCE CRITERIA (the definition of done):\n" + _criteria_text(criteria),
              f"\nTEST COMMAND (the orchestrator runs this after you finish): {test_command}",
-             f"\nWORKSPACE ({'you are in it, on branch ' + branch if agent_mode else 'files are shown; return complete files'}):\n"
+             f"\nWORKSPACE ({'you are in it, on branch ' + branch if agent_mode else 'branch ' + branch + '; files are shown; return complete files'}):\n"
              + evidence_block("tree", "file-tree", tree, trust="filesystem")]
     if prior:
         parts.append("\nPREVIOUS ATTEMPT FAILED. Fix it.")
