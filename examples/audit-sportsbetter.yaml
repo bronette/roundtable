@@ -1,0 +1,33 @@
+project:
+  name: audit-sportsbetter
+  domain: trading
+  repo: ../../SportsBetter
+  context_files:
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../../LLM_ONBOARDING.md
+  objective: >
+    Audit SportsBetter's active MLB spread line-shop data collection (selection_mode=line_shop) and its
+    model-driven history. Determine whether closing-line value is being measured correctly (which books,
+    whether closing lines are true closes, sample size against the 200-bet / CLV>0 gate), whether any
+    paper P&L rests on offshore books whose fillability was never verified, and whether the collected data
+    can answer the question the gate asks. Read README, DECISION_REPORT.md, docs/HOW_IT_WORKS.md, the
+    structural scan and line-shop code, and the settled-bets tables. Verdict as the proposal's claim:
+    KEEP, KILL, or NEEDS_EXPERIMENT with the one settling experiment and its kill criterion.
+  requirements:
+    - "Every claim cites a file path, a recorded number, or a database query result from the repository; no general knowledge stands in for evidence"
+    - "The verdict is one of KEEP, KILL, or NEEDS_EXPERIMENT, and for NEEDS_EXPERIMENT the single settling experiment is named with its kill criterion"
+    - "The audit states what P&L or edge evidence exists, whether it is broker/venue truth or bot-claimed, and its sample size"
+    - "Acceptance criteria describe what evidence would flip the verdict"
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 10, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  agy_cli:    { type: cli, cli: agy }
+  grok_cli:   { type: cli, cli: grok }
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 80 }
+  critic:      { provider: agy_cli, mode: read, model: gemini-3.1-pro-high, timeout_s: 900, max_turns: 60, fallback: claude_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }

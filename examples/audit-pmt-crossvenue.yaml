@@ -1,0 +1,34 @@
+project:
+  name: audit-pmt-crossvenue
+  domain: trading
+  repo: ../../PredictionMarketTrader
+  context_files:
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../../LLM_ONBOARDING.md
+  objective: >
+    Audit PredictionMarketTrader's cross-venue arbitrage study (PMT-WX-002 / PMT-CV-001: Kalshi vs
+    Polymarket matched markets, launchd scans) and the DUC paper study. For each: did its pre-registered
+    window resolve, was the verdict recorded per its own criteria, is the collector still running and
+    still producing usable observations, and is there any evidence of durable, fillable net edge after
+    fees and gas. Read the study docs, the matcher and scan code, research results artifacts, and the
+    snapshot tables. Verdict as the proposal's claim for each study: KEEP, KILL, or NEEDS_EXPERIMENT with
+    the one settling experiment and its kill criterion; if a study is already resolved, say so with the
+    artifact that proves it.
+  requirements:
+    - "Every claim cites a file path, a recorded number, or a database query result from the repository; no general knowledge stands in for evidence"
+    - "The verdict is one of KEEP, KILL, or NEEDS_EXPERIMENT, and for NEEDS_EXPERIMENT the single settling experiment is named with its kill criterion"
+    - "The audit states what P&L or edge evidence exists, whether it is broker/venue truth or bot-claimed, and its sample size"
+    - "Acceptance criteria describe what evidence would flip the verdict"
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 10, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  agy_cli:    { type: cli, cli: agy }
+  grok_cli:   { type: cli, cli: grok }
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 80 }
+  critic:      { provider: agy_cli, mode: read, model: gemini-3.1-pro-high, timeout_s: 900, max_turns: 60, fallback: claude_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }
