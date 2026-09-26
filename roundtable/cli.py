@@ -197,7 +197,8 @@ def runs(config: Path = typer.Option("project.yaml", "--config", "-c"), limit: i
 @app.command()
 def resume(run_id: str, config: Path = typer.Option("project.yaml", "--config", "-c"),
            max_calls: int | None = typer.Option(None, "--max-calls"), max_tokens: int | None = typer.Option(None, "--max-tokens"),
-           max_cost: float | None = typer.Option(None, "--max-cost"), max_seconds: int | None = typer.Option(None, "--max-seconds")):
+           max_cost: float | None = typer.Option(None, "--max-cost"), max_seconds: int | None = typer.Option(None, "--max-seconds"),
+           from_stage: str | None = typer.Option(None, "--from", help="Force the stage to restart at (e.g. TEST, REVIEW, IMPLEMENT).")):
     """Restart a halted run at the stage that failed. Completed calls are not repeated or re-billed.
     Budget counters continue from the run's usage; raise a cap here if the halt was a budget."""
     from roundtable.agents import Agent
@@ -222,7 +223,8 @@ def resume(run_id: str, config: Path = typer.Option("project.yaml", "--config", 
         console.print(f"[dim][{stage:<10}][/dim] {text}")
 
     try:
-        st = Pipeline(cfg, store, agents, on_event=on_event).resume(run_id)
+        from roundtable.pipeline import Stage
+        st = Pipeline(cfg, store, agents, on_event=on_event).resume(run_id, from_stage=Stage(from_stage.upper()) if from_stage else None)
     except ValueError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)

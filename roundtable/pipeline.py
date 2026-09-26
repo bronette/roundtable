@@ -84,16 +84,16 @@ class Pipeline:
         self.store.db.execute("UPDATE runs SET workspace_path=? WHERE id=?", (str(st.workspace), run_id))
         return self._loop(st, Stage.INIT)
 
-    def resume(self, run_id: str) -> RunState:
+    def resume(self, run_id: str, *, from_stage: "Stage | None" = None) -> RunState:
         """Restart a halted run at the stage that failed. Earlier calls are not repeated or re-billed;
         budget counters continue from the run's recorded usage, so raise the caps if the halt was a budget."""
         run = self.store.get_run(run_id)
         if run is None:
             raise ValueError(f"no run {run_id}")
-        if run["status"] == "done" or run["status"] in ("implemented", "implemented_with_objections"):
-            raise ValueError(f"run {run_id} finished with status {run['status']}; nothing to resume")
-        failed_stage = None
-        for d in reversed(self.store.decisions(run_id)):
+        if from_stage is None and (run["status"] == "done" or run["status"] in ("implemented", "implemented_with_objections")):
+            raise ValueError(f"run {run_id} finished with status {run['status']}; nothing to resume (use --from to force a stage)")
+        failed_stage = from_stage
+        for d in reversed(self.store.decisions(run_id)) if failed_stage is None else []:
             if d["reason"].startswith("halted:"):
                 failed_stage = Stage(d["from_stage"])
                 break
@@ -103,7 +103,9 @@ class Pipeline:
             failed_stage = Stage.SYNTHESIZE
         st = self._rebuild_state(run)
         self.store.reopen_run(run_id, failed_stage)
-        self.store.record_decision(run_id, Stage.HALTED, failed_stage, "resumed by operator", [])
+        self.store.record_decision(run_id, Stage.HALTED, failed_stage, "resumed by operator" + (f" from {failed_stage}" if from_stage else ""), [])
+        if from_stage in (Stage.TEST, Stage.REVIEW, Stage.FIX):
+            st.status = "running"
         self.on_event(Stage.HALTED, f"resuming {run_id} at {failed_stage} (round {st.round}, fix {st.fix_round})")
         return self._loop(st, failed_stage)
 

@@ -147,8 +147,13 @@ class Config(BaseModel):
         return out
 
     def resolve_path(self, p: str) -> Path:
+        """Absolute path relative to the config file. Never follows symlinks: a venv's `bin/python`
+        is a symlink to the base interpreter, and resolving it would escape the venv."""
+        expanded = os.path.expanduser(p)
+        if os.path.isabs(expanded):
+            return Path(os.path.normpath(expanded))
         base = Path(self.source_path).parent if self.source_path else Path.cwd()
-        return (base / os.path.expanduser(p)).resolve() if not os.path.isabs(os.path.expanduser(p)) else Path(os.path.expanduser(p))
+        return Path(os.path.normpath(os.path.join(base, expanded)))
 
 
 def load_config(path: str | Path) -> Config:

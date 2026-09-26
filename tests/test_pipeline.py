@@ -370,3 +370,18 @@ def test_resume_refuses_finished_run(tmp_path):
     store.finish_run(st.run_id, "implemented")
     with pytest.raises(ValueError, match="nothing to resume"):
         pipe.resume(st.run_id)
+
+
+def test_resume_from_forced_stage_reruns_tests(tmp_path):
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [Recording(IMPL_ANSWER)], "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)],
+    }, autonomy=2)
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "implemented"
+    from roundtable.pipeline import Stage
+    agents = {r: Agent(r, cfg.agents[r], RecordedProvider(recs, name=f"rec-{r}"), billing="api", pricing=Pricing()) for r, recs in {
+        "proposer": [], "critic": [], "reviser": [], "engineer": [], "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)]}.items()}
+    st2 = Pipeline(cfg, store, agents, on_event=lambda s, t: None).resume(st.run_id, from_stage=Stage.TEST)
+    assert st2.status == "implemented" and len(store.test_runs(st.run_id)) == 2       # tests ran again, engineer did not
+    assert [r["role"] for r in store.calls(st.run_id)][-2:] == ["validator", "synthesizer"]

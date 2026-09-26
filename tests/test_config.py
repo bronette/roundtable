@@ -1,3 +1,4 @@
+import os
 import pathlib
 
 import pytest
@@ -58,6 +59,16 @@ def test_relative_paths_resolve_against_config_file(tmp_path):
     p = tmp_path / "cfg" / "project.yaml"
     p.write_text("project: {name: t, objective: o, repo: ../repo, python: ../repo/py}\nproviders: {}\nagents: {}\n")
     cfg = load_config(p)
-    assert cfg.resolve_path(cfg.project.repo) == (tmp_path / "repo").resolve()
-    assert cfg.resolve_path(cfg.project.python) == (tmp_path / "repo" / "py").resolve()
+    assert cfg.resolve_path(cfg.project.repo) == pathlib.Path(os.path.normpath(tmp_path / "repo"))
+    assert cfg.resolve_path(cfg.project.python) == pathlib.Path(os.path.normpath(tmp_path / "repo" / "py"))
     assert cfg.resolve_path("/abs/x") == pathlib.Path("/abs/x")
+
+
+def test_resolve_path_keeps_venv_symlinks(tmp_path):
+    (tmp_path / "cfg").mkdir(); (tmp_path / "venv" / "bin").mkdir(parents=True)
+    real = tmp_path / "real-python"; real.write_text("")
+    (tmp_path / "venv" / "bin" / "python").symlink_to(real)
+    p = tmp_path / "cfg" / "project.yaml"
+    p.write_text("project: {name: t, objective: o, python: ../venv/bin/python}\nproviders: {}\nagents: {}\n")
+    cfg = load_config(p)
+    assert cfg.resolve_path(cfg.project.python).name == "python"          # not "real-python"
