@@ -104,8 +104,8 @@ class Pipeline:
         st = self._rebuild_state(run)
         self.store.reopen_run(run_id, failed_stage)
         self.store.record_decision(run_id, Stage.HALTED, failed_stage, "resumed by operator" + (f" from {failed_stage}" if from_stage else ""), [])
-        if from_stage in (Stage.TEST, Stage.REVIEW, Stage.FIX):
-            st.status = "running"
+        if from_stage in (Stage.TEST, Stage.FIX):
+            st.status = "running"          # tests will run again and set it; REVIEW keeps the rebuilt test status
         self.on_event(Stage.HALTED, f"resuming {run_id} at {failed_stage} (round {st.round}, fix {st.fix_round})")
         return self._loop(st, failed_stage)
 
