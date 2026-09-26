@@ -13,12 +13,16 @@ PROMPTS = Path(__file__).parent / "prompts"
 MAX_EVIDENCE_CHARS = 20_000
 
 
-def system_prompt(role_file: str, *, agent_mode: bool = False) -> str:
+def system_prompt(role_file: str, *, agent_mode: bool = False, domain: str | None = None) -> str:
     common = (PROMPTS / "_common.md").read_text().strip()
     if agent_mode:
         # the scratch-directory rule does not apply to an agent working inside the worktree
         common = "\n".join(l for l in common.splitlines() if "scratch directory" not in l)
-    return common + "\n\n" + (PROMPTS / f"{role_file}.md").read_text().strip()
+    text = common + "\n\n" + (PROMPTS / f"{role_file}.md").read_text().strip()
+    addendum = PROMPTS / f"{role_file}_{domain}.md" if domain else None
+    if addendum and addendum.exists():
+        text += "\n" + addendum.read_text().rstrip()
+    return text
 
 
 def evidence_block(id: str, kind: str, body: Any, *, trust: str = "agent-output") -> str:
@@ -110,3 +114,18 @@ def validator_pack(objective: str, requirements: list[str], criteria: list[dict[
     if diff and not files:
         parts.append(evidence_block("diff", "diff", diff, trust="filesystem"))
     return "\n".join(parts)
+
+
+# ---- M5 packs
+
+
+def interpreter_pack(prereg: dict[str, Any], prereg_hash: str, result: dict[str, Any]) -> str:
+    return ("PRE-REGISTRATION (locked " + prereg_hash[:19] + "…; fixed before the result existed):\n"
+            + evidence_block("prereg", "experiment-preregistration", prereg, trust="operator")
+            + "\n\nRECORDED RESULT (from the orchestrator's execution, not from any model):\n"
+            + evidence_block("result", "experiment-result", result, trust="test-runner"))
+
+
+def experiment_critic_pack(prereg: dict[str, Any], prereg_hash: str, result: dict[str, Any], interpretation: dict[str, Any]) -> str:
+    return (interpreter_pack(prereg, prereg_hash, result)
+            + "\n\nINTERPRETATION under review:\n" + evidence_block("interp", "interpretation", interpretation))

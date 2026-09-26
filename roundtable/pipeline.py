@@ -17,7 +17,7 @@ from roundtable.budget import Budget, BudgetExceeded
 from roundtable.config import Config
 from roundtable.providers.base import ProviderError, SchemaError, UsageLimitError
 from roundtable.report import build_report
-from roundtable.schemas import Critique, Implementation, Proposal, Review, Scope, Synthesis, Verdict
+from roundtable.schemas import Critique, Implementation, Proposal, Review, Scope, Synthesis, TradingCritique, Verdict
 from roundtable.store import Store
 
 
@@ -180,7 +180,8 @@ class Pipeline:
         self.on_event(stage, f"{role} ← {agent.provider.name}" + (f"/{agent.cfg.model}" if agent.cfg.model else "")
                              + (" [agent mode in worktree]" if workspace else ""))
         res = agent.call(store=self.store, run_id=st.run_id, stage=stage,
-                         system=context.system_prompt(prompt_file or role, agent_mode=workspace is not None),
+                         system=context.system_prompt(prompt_file or role, agent_mode=workspace is not None,
+                                                      domain=self.cfg.project.domain),
                          prompt=prompt, schema=schema, context_refs=refs, workspace=workspace)
         c = res.completion
         self.on_event(stage, f"{role} → {c.model}  {c.latency_ms} ms  in={c.usage.input_tokens} out={c.usage.output_tokens}"
@@ -322,11 +323,12 @@ class Pipeline:
         body = self.store.proposal(st.run_id, pid)
         existing = [c for c in self.store.critiques(st.run_id) if c["target_kind"] == "proposal" and c["target_id"] == pid]
         if existing:   # resumed after the critique was already recorded: apply its verdict instead of paying again
-            crit = Critique.model_validate(json.loads(existing[-1]["body_json"]))
+            crit = Critique.model_validate(json.loads(existing[-1]["body_json"]))   # base fields suffice for the verdict
             st.critique_id = existing[-1]["id"]
             return self._apply_verdict(st, pid, st.critique_id, crit)
         prompt = context.critic_pack(p.objective, p.requirements, pid, body)
-        res = self._call(st, "critic", Stage.CRITIQUE, prompt, Critique, [pid])
+        schema = TradingCritique if p.domain == "trading" else Critique
+        res = self._call(st, "critic", Stage.CRITIQUE, prompt, schema, [pid])
         crit: Critique = res.output  # type: ignore[assignment]
         cid = self.store.add_critique(st.run_id, call_id=res.call_id, target_kind="proposal", target_id=pid,
                                       verdict=crit.verdict, body=crit.model_dump(mode="json"))

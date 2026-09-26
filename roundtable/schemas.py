@@ -156,3 +156,86 @@ class Synthesis(BaseModel):
     recommended_next_experiment: str | None = Field(default=None, description="The single most informative next step.")
     overall_verdict: Verdict = Field(description="ACCEPT only if the acceptance criteria were met with evidence.")
     confidence: float = Field(ge=0, le=1)
+
+
+# ---- M5: experiments and the trading domain
+
+
+class Decision(StrEnum):
+    PASS = "PASS"
+    KILL = "KILL"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+class ExperimentPrereg(BaseModel):
+    """Locked before any result exists. Mirrors the hypothesis-gate one-pager."""
+    hypothesis: str = Field(description="One falsifiable sentence.")
+    expected_result: str = Field(description="What the numbers will look like if the hypothesis is true.")
+    method: str = Field(description="Exactly what is run: command, parameters, windows.")
+    data: str = Field(description="Which data, which period, how obtained; whether it was seen before.")
+    success_criteria: list[str] = Field(min_length=1, description="Metric + threshold + sample size that would count as PASS.")
+    failure_criteria: list[str] = Field(min_length=1, description="Metric + threshold + sample size that KILLS the idea.")
+    assumptions: list[str] = Field(default_factory=list)
+    n_trials: int = Field(default=1, ge=1, description="Configs/symbols/windows searched; used for multiple-testing corrections.")
+    execution_model: str | None = Field(default=None, description="Trading: fills, fees, slippage, latency assumed.")
+    command: str = Field(description="Shell command that produces the result; must write metrics as JSON to stdout or to the file named by ROUNDTABLE_METRICS.")
+    repo: str | None = Field(default=None, description="Repository the command runs in; pinned to a commit at lock time.")
+
+
+class ExperimentResult(BaseModel):
+    """Written by the orchestrator from a real execution. Never by a model."""
+    command: str
+    exit_code: int
+    metrics: dict[str, float | int | str | bool | None] = Field(default_factory=dict)
+    stdout_tail: str = ""
+    duration_s: float = 0.0
+    commit: str | None = None
+    timed_out: bool = False
+
+
+class CriterionRead(BaseModel):
+    criterion: str = Field(description="The success or failure criterion, quoted.")
+    met: bool | None = Field(description="true = met, false = not met, null = cannot be evaluated from the metrics.")
+    evidence: str = Field(description="The metric name and value that decides it.")
+
+
+class Interpretation(BaseModel):
+    decision: Decision = Field(description="PASS only if a success criterion is met and no failure criterion is; KILL if any failure criterion is met; else INCONCLUSIVE.")
+    success_reads: list[CriterionRead]
+    failure_reads: list[CriterionRead]
+    interpretation: str = Field(description="What the result means, in plain words. No speculation beyond the metrics.")
+    caveats: list[str] = Field(default_factory=list, description="Sample size, regime, multiple testing, data issues.")
+    confidence: float = Field(ge=0, le=1)
+
+
+class InterpretationReview(BaseModel):
+    verdict: Verdict = Field(description="ACCEPT if the interpretation follows from the locked criteria and the metrics; REVISE or REJECT otherwise.")
+    problems: list[Problem] = Field(default_factory=list)
+    decision_should_be: Decision | None = Field(default=None, description="If you disagree with the decision, what it should be.")
+    confidence: float = Field(ge=0, le=1)
+
+
+TRADING_CHECKS = (
+    "look_ahead_bias", "survivorship_bias", "data_leakage", "overfitting", "multiple_hypothesis_testing",
+    "unrealistic_fills", "commissions_fees", "spread", "slippage", "liquidity_capacity", "queue_position",
+    "execution_latency", "sample_size", "regime_dependence", "parameter_sensitivity",
+)
+
+
+class DomainCheck(BaseModel):
+    name: str = Field(description="One of the required check names, exactly.")
+    status: Literal["ok", "concern", "not_applicable"]
+    note: str = Field(description="Why. For 'concern', what would settle it.")
+
+
+class TradingCritique(Critique):
+    """A critique of a trading proposal must address every item on the checklist."""
+    trading_checks: list[DomainCheck] = Field(description="One entry per required check name; none may be omitted.")
+
+    @model_validator(mode="after")
+    def _complete(self) -> "TradingCritique":
+        names = {c.name for c in self.trading_checks}
+        missing = [n for n in TRADING_CHECKS if n not in names]
+        if missing:
+            raise ValueError(f"trading_checks missing: {', '.join(missing)}")
+        return self

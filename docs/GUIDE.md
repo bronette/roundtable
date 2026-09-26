@@ -236,3 +236,63 @@ runs/<project>/
     artifacts/                     diffs and test output, one file per artifact id
     report.md
 ```
+
+
+## Experiments (pre-registered)
+
+For research questions, especially trading, the unit of work is an experiment whose criteria
+are fixed before any result exists. This is the mechanism that stops "tune until the backtest
+looks good". Three commands:
+
+```bash
+uv run roundtable experiment preregister prereg.yaml -c project.yaml   # lock it: E1, hash, pinned commit
+uv run roundtable experiment run E1 -c project.yaml                     # execute the command, record the real output
+uv run roundtable experiment interpret E1 -c project.yaml               # read the numbers against the locked criteria
+```
+
+`prereg.yaml` mirrors the hypothesis-gate one-pager:
+
+```yaml
+hypothesis: The slow-category NO slice has positive net edge after fees.
+expected_result: mean_edge >= 0.01 per contract at n >= 300
+method: run the study's own analyzer on the frozen settled cohort
+data: data/study.db, settled 2026-06-01..2026-09-15, never used for tuning
+success_criteria: ["mean_edge >= 0.01 with n >= 300"]
+failure_criteria: ["ci_lower <= -0.01 with n >= 300"]
+n_trials: 1                                  # configs searched; feeds multiple-testing corrections
+execution_model: taker at ask, Kalshi fee schedule 2026-07, no partial fills
+command: python scripts/analyze.py --json    # writes JSON to $ROUNDTABLE_METRICS or prints a JSON line
+repo: ~/code-projects/SomeTrader             # optional; pinned to its current commit at lock time
+```
+
+What each step guarantees:
+
+- **preregister** hashes the whole pre-registration and records the repo commit. Any later edit
+  to the stored criteria makes `run` and `interpret` refuse with "altered after locking".
+- **run** executes the command once, in a worktree at the pinned commit, with API keys stripped
+  and a timeout. Metrics come from the JSON file named by `ROUNDTABLE_METRICS` or the last JSON
+  line on stdout. An experiment with a recorded result cannot be run again; pre-register a new one.
+- **interpret** has one model read every success and failure criterion against the recorded
+  metrics, citing the value that decides each. The decision rule is then applied by code, not by
+  the model: any failure criterion met is KILL; else any success criterion met is PASS; else
+  INCONCLUSIVE. A model that flinches from a KILL is overridden and the override is recorded. A
+  second model reviews the reading; if it disagrees on the decision, the experiment is recorded
+  INCONCLUSIVE with both positions and an open question for you.
+
+`experiment list` and `experiment show E1` print the ledger. Roles: `interpreter` and
+`experiment_critic` if configured, else the synthesizer and critic seats.
+
+## Trading projects
+
+Set `project.domain: trading`. Two things change:
+
+- The proposer must state the execution model (fills, fees, spread, slippage, latency,
+  capacity), the search budget (`n_trials`), the benchmark, and the in-sample/out-of-sample split.
+- The critic must fill in a fifteen-item checklist on every proposal (look-ahead bias,
+  survivorship bias, data leakage, overfitting, multiple-hypothesis testing, unrealistic fills,
+  commissions and fees, spread, slippage, liquidity and capacity, queue position, execution
+  latency, sample size, regime dependence, parameter sensitivity), each marked ok, concern, or
+  not applicable with a reason. A critique missing any item fails validation and is repaired.
+
+A model saying a strategy works is never evidence; only an executed experiment is. A proposal
+that claims an edge without one gets NEEDS_EXPERIMENT, which points you at the commands above.

@@ -17,7 +17,7 @@ project:
   test_command: python -m pytest -q   # run by the orchestrator after the engineer finishes
   python: /path/to/python        # optional: interpreter substituted for `python` in test_command
   test_timeout_s: 300
-  domain: trading                # optional; reserved for the trading critic checklist (M5)
+  domain: trading                # optional; trading adds proposer rules and the critic checklist
 
 autonomy: 2                      # see "Autonomy levels"
 runs_dir: ../runs                # where runs/<project>/<run_id>/ and roundtable.db live
@@ -120,6 +120,7 @@ with neither leaves the total "partly unknown" and the cost cap is not enforced 
 | `max_turns` | 40 | Agent mode: tool-use turns allowed in one engineer call. |
 
 Roles the pipeline uses: `proposer`, `critic`, `reviser`, `engineer`, `validator`, `synthesizer`.
+Experiments use `interpreter` and `experiment_critic` when present, else `synthesizer` and `critic`.
 Any role can point at any provider. The reviser is usually the same backend as the proposer.
 Missing `synthesizer` produces a fact-only report; missing `engineer` or `validator` fails at
 the stage that needs them.

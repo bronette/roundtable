@@ -67,9 +67,9 @@ def _exclude_caches(ws_path: Path) -> None:
                 f.write(pat + "\n")
 
 
-def prepare_workspace(run_dir: Path, repo: str | None, run_id: str) -> Workspace:
+def prepare_workspace(run_dir: Path, repo: str | None, run_id: str, *, commit: str | None = None) -> Workspace:
     """A per-run working copy the engineer may write to. The user's repo is never modified
-    except for the new branch ref that a worktree needs."""
+    except for the new branch ref that a worktree needs. `commit` pins a git repo to that revision."""
     ws = run_dir / "workspace"
     branch = f"roundtable/{run_id}"
     if repo:
@@ -78,7 +78,7 @@ def prepare_workspace(run_dir: Path, repo: str | None, run_id: str) -> Workspace
             raise WorkspaceError(f"repo path does not exist: {src}")
         if _is_git_repo(src):
             ws.parent.mkdir(parents=True, exist_ok=True)
-            _git(src, "worktree", "add", "-b", branch, str(ws), "HEAD")
+            _git(src, "worktree", "add", "-b", branch, str(ws), commit or "HEAD")
             _exclude_caches(ws)
             base = _git(ws, "rev-parse", "HEAD").strip()
             return Workspace(ws, branch, base, src, "worktree")

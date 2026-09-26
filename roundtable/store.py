@@ -316,6 +316,45 @@ class Store:
     def test_runs(self, run_id: str) -> list[sqlite3.Row]:
         return self.db.execute("SELECT * FROM test_runs WHERE run_id=? ORDER BY created_at", (run_id,)).fetchall()
 
+    # ---- experiments (pre-registered; criteria hashed before any result)
+
+    def preregister(self, *, project_id: str, prereg: dict[str, Any], hypothesis_id: str | None = None) -> tuple[str, str]:
+        n = self.db.execute("SELECT COUNT(*) FROM experiments WHERE project_id=?", (project_id,)).fetchone()[0]
+        eid = f"E{n + 1}"
+        body = dumps(prereg)
+        h = sha256_text(body)
+        self.db.execute("INSERT INTO experiments (id, project_id, hypothesis_id, prereg_json, prereg_hash, locked_at) VALUES (?,?,?,?,?,?)",
+                        (eid, project_id, hypothesis_id, body, h, now_iso()))
+        return eid, h
+
+    def experiment(self, eid: str) -> sqlite3.Row | None:
+        return self.db.execute("SELECT * FROM experiments WHERE id=?", (eid,)).fetchone()
+
+    def experiments(self, project_id: str | None = None) -> list[sqlite3.Row]:
+        if project_id:
+            return self.db.execute("SELECT * FROM experiments WHERE project_id=? ORDER BY locked_at", (project_id,)).fetchall()
+        return self.db.execute("SELECT * FROM experiments ORDER BY locked_at").fetchall()
+
+    def record_result(self, eid: str, result: dict[str, Any]) -> bool:
+        """Stores the result and re-checks that the pre-registration has not been altered since locking."""
+        r = self.experiment(eid)
+        if r is None:
+            raise KeyError(eid)
+        intact = sha256_text(r["prereg_json"]) == r["prereg_hash"]
+        self.db.execute("UPDATE experiments SET result_json=?, result_hash_check=? WHERE id=?", (dumps(result), int(intact), eid))
+        return intact
+
+    def record_interpretation(self, eid: str, decision: str, interpretation: dict[str, Any], review: dict[str, Any] | None) -> None:
+        r = self.experiment(eid)
+        result = json.loads(r["result_json"]) if r and r["result_json"] else {}
+        result["interpretation"] = interpretation
+        result["review"] = review
+        self.db.execute("UPDATE experiments SET result_json=?, interpreted_at=?, decision=? WHERE id=?",
+                        (dumps(result), now_iso(), decision, eid))
+
+    def latest_project(self, name: str) -> sqlite3.Row | None:
+        return self.db.execute("SELECT * FROM projects WHERE name=? ORDER BY created_at DESC LIMIT 1", (name,)).fetchone()
+
     def runs(self, limit: int = 20) -> list[sqlite3.Row]:
         return self.db.execute(
             "SELECT r.*, p.name AS project_name, p.objective FROM runs r JOIN projects p ON p.id=r.project_id "

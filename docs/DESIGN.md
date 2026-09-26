@@ -897,3 +897,20 @@ Lessons:
 - `calls --role/--stage/--failed/--json`, `call-show <call_id>`.
 - Also this session: Gemini (API key; CLI with isolated home) and Antigravity (`agy`, Google AI
   Pro login) providers, verified live. 62 tests.
+
+
+### 2026-09-26 — real-repo trial and M5
+
+- **quantcore trial** (`run_88acdc927f`): objective from the repo's own roadmap (a cost model).
+  Four critique rounds, Claude engineer in a worktree, 425 tests green, validator 15/15, ACCEPT.
+  Branch ready to merge. Found and fixed three bugs: relative `repo` resolved against cwd; venv
+  interpreter symlink-resolved out of the venv; reviewers saw only the last round's diff. Added
+  `resume --from STAGE`. Policy change: a blocker still open at the round limit now stops the
+  run as `needs_input` instead of locking the criteria (the trial locked a criterion with a wrong
+  expected value; the engineer handled it well, but it should not have been locked).
+- **M5**: `experiments.py` + `roundtable experiment preregister|run|interpret|list|show`.
+  Pre-registration hashed and commit-pinned; run refuses altered or already-run experiments;
+  metrics from `$ROUNDTABLE_METRICS` or a JSON stdout line; interpreter reads each criterion with
+  cited evidence; decision computed by code (KILL > PASS > INCONCLUSIVE) and overrides logged;
+  critic reviews the reading, disagreement → INCONCLUSIVE + open question. `domain: trading`
+  adds proposer rules and a 15-item `TradingCritique` checklist enforced by schema. 78 tests.

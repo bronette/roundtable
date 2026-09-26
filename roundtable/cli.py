@@ -268,3 +268,101 @@ def call_show(call_id: str, config: Path = typer.Option("project.yaml", "--confi
         console.print(m["content"])
     console.rule("response", style="dim")
     console.print(row["parsed_json"] or row["response_text"] or "(none)")
+
+
+experiment_app = typer.Typer(no_args_is_help=True, help="Pre-registered experiments: preregister → run → interpret.")
+app.add_typer(experiment_app, name="experiment")
+
+
+def _agent_or_alias(cfg, pricing, role: str, alias: str):
+    from roundtable.agents import Agent
+    return Agent.from_config(role if role in cfg.agents else alias, cfg, pricing)
+
+
+@experiment_app.command("preregister")
+def exp_preregister(prereg_file: Path, config: Path = typer.Option("project.yaml", "--config", "-c")):
+    """Lock hypothesis, method, data, and success/failure criteria before any result exists."""
+    from roundtable.experiments import ExperimentError, load_prereg, preregister
+    cfg = _load(config)
+    store = _store_for(cfg)
+    try:
+        eid, h, body = preregister(cfg, store, load_prereg(prereg_file))
+    except (ExperimentError, ValueError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(2)
+    console.print(f"[bold]{eid}[/bold] locked {h[:23]}…" + (f"  repo commit {body.get('repo_commit', '')[:10]}" if body.get("repo_commit") else ""))
+    console.print(f"hypothesis: {body['hypothesis']}")
+    console.print(f"kill if: {'; '.join(body['failure_criteria'])}")
+    console.print(f"next: roundtable experiment run {eid} -c {config}")
+
+
+@experiment_app.command("run")
+def exp_run(eid: str, config: Path = typer.Option("project.yaml", "--config", "-c"), timeout: float = typer.Option(3600, "--timeout")):
+    """Execute the locked command at the pinned commit and record the real result."""
+    from roundtable.experiments import ExperimentError, run_experiment
+    cfg = _load(config)
+    store = _store_for(cfg)
+    try:
+        r = run_experiment(cfg, store, eid, runs_dir=cfg.resolve_path(cfg.runs_dir), timeout_s=timeout)
+    except ExperimentError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    console.print(f"{eid}: `{r.command}` exit={r.exit_code} {r.duration_s}s" + (" TIMED OUT" if r.timed_out else ""))
+    console.print_json(json.dumps(r.metrics)) if r.metrics else console.print("[yellow]no metrics captured (write JSON to $ROUNDTABLE_METRICS or print a JSON line)[/yellow]")
+    console.print(f"next: roundtable experiment interpret {eid} -c {config}")
+
+
+@experiment_app.command("interpret")
+def exp_interpret(eid: str, config: Path = typer.Option("project.yaml", "--config", "-c"),
+                  no_critic: bool = typer.Option(False, "--no-critic")):
+    """Read the result against the locked criteria (interpreter), have the reading checked (critic), record the decision."""
+    from roundtable.experiments import ExperimentError, interpret
+    cfg = _load(config)
+    store = _store_for(cfg)
+    pricing = Pricing.load(cfg.resolve_path(cfg.pricing) if cfg.pricing else None)
+    try:
+        interp_agent = _agent_or_alias(cfg, pricing, "interpreter", "synthesizer")
+        critic_agent = None if no_critic else _agent_or_alias(cfg, pricing, "experiment_critic", "critic")
+        out = interpret(cfg, store, eid, interpreter=interp_agent, critic=critic_agent,
+                        on_event=lambda s, t: console.print(f"[dim][{s:<10}][/dim] {t}"))
+    except (ExperimentError, ProviderError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    console.rule(f"{eid}: {out.decision}")
+    for kind, reads in (("success", out.interpretation.success_reads), ("failure", out.interpretation.failure_reads)):
+        for r in reads:
+            mark = "met" if r.met else ("not met" if r.met is False else "cannot evaluate")
+            console.print(f"  {kind}: {r.criterion} → [bold]{mark}[/bold] ({r.evidence})")
+    console.print(out.interpretation.interpretation)
+    for c in out.interpretation.caveats:
+        console.print(f"  caveat: {c}")
+    if out.overridden:
+        console.print(f"[yellow]{out.overridden}[/yellow]")
+    if out.review and out.review.verdict != "ACCEPT":
+        console.print(f"[yellow]critic {out.review.verdict}:[/yellow] " + "; ".join(p.description for p in out.review.problems))
+
+
+@experiment_app.command("list")
+def exp_list(config: Path = typer.Option("project.yaml", "--config", "-c")):
+    cfg = _load(config)
+    store = _store_for(cfg)
+    t = Table("id", "locked", "decision", "hypothesis")
+    for r in store.experiments():
+        body = json.loads(r["prereg_json"])
+        t.add_row(r["id"], r["locked_at"], r["decision"] or ("run" if r["result_json"] else "locked"), body["hypothesis"][:70])
+    console.print(t)
+
+
+@experiment_app.command("show")
+def exp_show(eid: str, config: Path = typer.Option("project.yaml", "--config", "-c")):
+    cfg = _load(config)
+    store = _store_for(cfg)
+    r = store.experiment(eid)
+    if not r:
+        console.print(f"no experiment {eid}")
+        raise typer.Exit(1)
+    console.rule(f"{eid}  locked {r['locked_at']}  hash {r['prereg_hash'][:23]}…  decision {r['decision'] or '-'}")
+    console.print_json(r["prereg_json"])
+    if r["result_json"]:
+        console.rule("result")
+        console.print_json(r["result_json"])
