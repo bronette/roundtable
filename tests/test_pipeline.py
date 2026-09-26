@@ -436,3 +436,23 @@ def test_context_files_reach_every_seat_but_the_engineer(tmp_path):
     }, autonomy=2)
     cfg.project.context_files = [str(memo)]
     assert pipe.run(runs_dir=tmp_path / "runs").status == "implemented"
+
+
+def test_engineer_timeout_after_editing_commits_partial_work(tmp_path):
+    from roundtable.providers.base import ProviderError
+    def act_then_die(workspace):
+        (pathlib.Path(workspace) / "dd.py").write_text(DD_PY)
+        (pathlib.Path(workspace) / "test_dd.py").write_text(TEST_PY)
+        raise ProviderError("/bin/claude timed out after 1800.0s")
+    cfg, store, pipe, events = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [Recording(IMPL_AGENT, side_effect=act_then_die)],
+        "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)],
+    }, autonomy=2, engineer_mode="agent")
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "implemented"                                  # partial work was tested and passed
+    impl = json.loads(store.implementations(st.run_id)[0]["body_json"])
+    assert impl["summary"].startswith("PARTIAL") and sorted(impl["changed"]) == ["dd.py", "test_dd.py"]
+    assert any("committing partial changes" in t for _, t in events)
+    eng = [r for r in store.calls(st.run_id) if r["role"] == "engineer"]
+    assert len(eng) == 1 and eng[0]["valid"] == 0                       # logged as failed, not retried

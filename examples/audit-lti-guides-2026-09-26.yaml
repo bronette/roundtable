@@ -1,0 +1,45 @@
+# SEO + medical-content audit of the five cost guides shipped to labtestinsight.com on
+# 2026-09-26. The models read the repo (read-only worktree) and the audit brief, produce a
+# per-page verdict, and a second vendor attacks it. Autonomy 1: no code is written.
+project:
+  name: audit-lti-guides-2026-09-26
+  repo: ../../AffiliateMarketer
+  context_files:
+    - ../../AffiliateMarketer/docs/roundtable_audit_brief_2026-09-26.md
+    - ../../AffiliateMarketer/docs/plan_30day_2026-09-27.md
+  objective: >
+    Act as a senior SEO auditor and medical content verifier. Audit the five cost guides
+    published to labtestinsight.com on 2026-09-26, listed with paths in the audit brief
+    (docs/roundtable_audit_brief_2026-09-26.md). Read each guide in full, the h-pylori
+    template it was copied from, the registry (sites/labtestinsight.com/go/registry.php),
+    the verified price data (tools/price_index_data/prices_2026-08-02.json), and the pages
+    the brief names as cannibalisation risks. The proposal's claim is the audit verdict:
+    for each guide, PASS, FIX (with the exact edits, quoting the offending text), or PULL,
+    covering SEO, content verification, honesty and template consistency, and the
+    observation-freeze check, as the brief specifies. Every finding must quote the file
+    path and the text or number it concerns. Distinguish "wrong" (contradicts the registry,
+    the JSON, the repo, or mainstream guidelines) from "unverifiable" (cannot be checked
+    from the repo). Do not propose new pages or strategy; this is a verification of what
+    shipped.
+  requirements:
+    - "Each of the five guides receives an explicit PASS / FIX / PULL verdict with the reasons, and every FIX names the file and quotes the text to change"
+    - "Every medical number or rule in the five guides is either confirmed against mainstream guidelines, flagged as wrong with the correct value and a named source, or flagged as overstated"
+    - "Every /go/ slug used by the five guides is confirmed present in the registry, and every internal href is confirmed to resolve to a file in the repo"
+    - "Every price in the five guides is checked against the registry comment or the August price JSON where a match exists, and listed as unverifiable where none does"
+    - "Cannibalisation is assessed for each guide against the specific existing pages the brief names, with a judgement on whether titles or targeting need to change"
+    - "The freeze check is performed with git log and its result stated"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 1200000, max_cost_usd: 15.0, max_seconds: 3600 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 1200, max_turns: 80 }   # reads all five guides + sources, writes the audit
+  critic:      { provider: agy_cli,    mode: read, timeout_s: 1200, max_turns: 80, model: gemini-3.1-pro-high, fallback: claude_cli }   # Gemini re-checks the audit against the repo
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 1200, max_turns: 80 }
+  synthesizer: { provider: claude_cli }

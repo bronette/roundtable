@@ -1,0 +1,50 @@
+# Growth strategy run for the AffiliateMarketer portfolio. The models read the repo
+# (read-only worktree) plus the dated evidence brief and argue about the next 30 days.
+# Autonomy 1: propose, critique, revise until accepted; no code is written.
+project:
+  name: growth-affiliatemarketer
+  repo: ../../AffiliateMarketer
+  context_files:
+    - ../../AffiliateMarketer/docs/roundtable_state_brief_2026-09-26.md
+    - ../../AffiliateMarketer/docs/portfolio_strategy_2026-07-14.md
+    - ../../AffiliateMarketer/docs/antigravity-audit-2026-09-25.md
+    - ../../AffiliateMarketer/docs/cro_audit_2026-08-12.md
+  objective: >
+    Produce a ranked 30-day action plan (Sep 27 - Oct 27, 2026) for a one-person affiliate
+    portfolio of 17 static sites, to grow Google search clicks on labtestinsight.com and net
+    affiliate commissions across the portfolio. Start from the evidence brief
+    (docs/roundtable_state_brief_2026-09-26.md): it states the revenue and traffic truth as of
+    today, the constraints, and what has already been done or rejected. Read the repo to check
+    any claim you rely on (site trees are under sites/<domain>/, tooling under tools/, memos
+    under docs/). The proposal's claim is the plan itself: 5 to 10 actions in priority order.
+    For every action give the motivating evidence (a number from the brief, a file path, or a
+    portal figure), the expected effect as a number with its basis, the operator hours, the
+    date it can start (respect the Oct 9 observation freeze), and the observable result within
+    30 days that would prove the action wrong. State which BSL/NHL/frozen-site ideas deserve
+    exactly one cheap experiment and which should be abandoned, and say "do nothing" where
+    that is the right call. Do not propose paid traffic, link buying, or new supplement
+    content on frozen sites. Do not repeat items the brief marks as already done or rejected
+    unless you show why the rejection was mistaken.
+  requirements:
+    - "Every action cites a specific number from the evidence brief or a specific file path in the repo; general affiliate-marketing advice without a citation is not acceptable"
+    - "Every action has a numeric expected effect (clicks, orders, or dollars over 30 days) with the arithmetic or comparison it rests on"
+    - "Every action has a falsification test: the measurement, the date, and the threshold that would mark it a failure"
+    - "The plan fits in roughly 40 operator hours over 30 days and says which hours go where"
+    - "The plan respects the observation freeze (8 named URLs untouched until Oct 9) and schedules any work on them after that date"
+    - "The plan states, for each of bloodsugarlab, nitrichealthlab, and the SellHealth enhancement sites, whether to run one experiment or do nothing, with the reason"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }   # reads repo + brief, writes the plan
+  critic:      { provider: agy_cli,    mode: read, timeout_s: 900, max_turns: 60, model: gemini-3.1-pro-high, fallback: claude_cli }   # Gemini attacks it against the repo (Grok returned an empty "placeholder" critique on run_11c3a954de)
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }

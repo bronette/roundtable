@@ -246,10 +246,22 @@ class Pipeline:
                                        criteria, tree=actions.file_tree(ws), test_command=p.test_command, branch=ws.branch,
                                        agent_mode=agent_mode, prior=prior)
         a = self.cfg.agents["engineer"]
-        res = self._call(st, "engineer", stage, prompt, Implementation, [st.proposal_id],
-                         prompt_file="engineer" if agent_mode else "engineer_answer",
-                         workspace=str(ws.path) if agent_mode else None)
-        impl: Implementation = res.output  # type: ignore[assignment]
+        try:
+            res = self._call(st, "engineer", stage, prompt, Implementation, [st.proposal_id],
+                             prompt_file="engineer" if agent_mode else "engineer_answer",
+                             workspace=str(ws.path) if agent_mode else None)
+            impl: Implementation = res.output  # type: ignore[assignment]
+            call_id = res.call_id
+        except ProviderError as e:
+            # An agent-mode engineer that timed out (or crashed) after editing files is partial work, not
+            # nothing. Keep what is on disk, say so, and let the tests judge it.
+            if not (agent_mode and ws.git("status", "--porcelain", check=False).strip()):
+                raise
+            self.on_event(stage, f"engineer failed mid-work ({str(e)[:80]}); committing partial changes for testing")
+            impl = Implementation(summary=f"PARTIAL: engineer session ended before reporting ({type(e).__name__}: {str(e)[:160]}). "
+                                          "Changes on disk were committed as-is; the test stage decides.",
+                                  known_gaps=["engineer did not finish; summary and gaps unknown"])
+            call_id = self.store.calls(st.run_id)[-1]["id"]
         if not agent_mode:
             try:
                 actions.write_files(ws, impl.files)
@@ -258,9 +270,9 @@ class Pipeline:
         commit, diff, changed = actions.commit_changes(ws, f"roundtable {st.run_id}: {stage.lower()} round {st.fix_round}")
         # reviewers and the report see the whole run's change, not just this round's
         st.last_diff, st.changed_paths = actions.cumulative_changes(ws)
-        art = self.store.add_artifact(st.run_id, call_id=res.call_id, kind="diff", name=f"{stage.lower()}{st.fix_round}.diff",
+        art = self.store.add_artifact(st.run_id, call_id=call_id, kind="diff", name=f"{stage.lower()}{st.fix_round}.diff",
                                       content=diff or "(no changes)", artifacts_dir=st.run_dir / "artifacts")
-        st.impl_id = self.store.add_implementation(st.run_id, call_id=res.call_id, proposal_id=st.proposal_id, fix_round=st.fix_round,
+        st.impl_id = self.store.add_implementation(st.run_id, call_id=call_id, proposal_id=st.proposal_id, fix_round=st.fix_round,
                                                    artifact_ids=[art], body=impl.model_dump(mode="json") | {"commit": commit, "changed": changed})
         self.on_event(stage, f"{st.impl_id}: {len(changed)} file(s) changed, commit {commit[:10]} on {ws.branch}"
                              + (f"; known gaps: {len(impl.known_gaps)}" if impl.known_gaps else ""))

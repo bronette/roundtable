@@ -114,7 +114,7 @@ class Agent:
                                       context_refs=refs, schema_name=schema.__name__ if schema else None,
                                       completion=None, valid=False, error=f"{type(e).__name__}: {str(e)[:500]}",
                                       cost_usd=None, billing=self.billing, started_at=started)
-                    if _transient(e) and transient_left > 0:
+                    if _transient(e) and transient_left > 0 and not (workspace and "timed out" in str(e)):
                         delay = BACKOFF_S[min(self.cfg.retries - transient_left, len(BACKOFF_S) - 1)]
                         transient_left -= 1
                         _sleep(delay)

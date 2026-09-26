@@ -1,0 +1,61 @@
+# Prepare the PMT-LIP-002 re-registration on a branch. LIP-001 (running, blinded) is not touched:
+# its criteria, analyzer path and scheduled jobs keep working exactly as before.
+project:
+  name: pmt-lip002
+  domain: trading
+  repo: ../../PredictionMarketTrader
+  python: ../../PredictionMarketTrader/.venv/bin/python
+  test_command: python -m pytest -q tests/ -p no:cacheprovider
+  test_timeout_s: 900
+  context_files:
+    - ../../research/PMT-LIP-001_GATE.md
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../runs/audit-pmt-lip001/run_d5b4d71efc/report.md
+  objective: >
+    Prepare the code for a PMT-LIP-002 re-registration of the Kalshi Liquidity Incentive Program
+    study, fixing the three instrument defects found in the LIP-001 audit (supplied as a context
+    document), WITHOUT changing any behaviour of the running LIP-001 study. Deliver, as additive
+    code behind new parameters or functions: (1) a one-pass analyzer that scans the L2 tape once
+    for all tickers (L2Tape.warm_start or equivalent) and reproduces the per-ticker analyzer's
+    simulate_market results exactly, proven by an equivalence test on synthetic tape and on a
+    sampled real segment if available offline, plus a runtime instrument check that projects
+    total analyzer runtime from a timed sample and fails the check when the projection exceeds
+    the analysis window; (2) a queue-position model option for the quoter simulation with
+    'ahead' (current behaviour), 'proportional' and 'random' cancel attribution, defaulting to
+    'ahead' so LIP-001 is unchanged, with tests showing the three models order fills as expected;
+    (3) criteria_version 2 support in which programme ids whose reward, target or discount
+    change within their period are excluded per id with a pre-declared materiality threshold on
+    dropped market-days (a named parameter, value left for the operator, and an ABORT when
+    exceeded), never mutating criteria_version 1; and (4) a draft gate document
+    docs/PMT-LIP-002_GATE_DRAFT.md in the exact format of PMT-LIP-001_GATE.md with the new
+    window left as TBD, the queue model set to proportional, and the kill criteria carried over.
+  requirements:
+    - "LIP-001 unchanged: CRITERIA (v1) values, the existing analyze() path, verdict(), scripts/run_lip001.sh and the launchd jobs behave identically; existing tests pass without modification"
+    - "One-pass analyzer produces identical simulate_market outputs to the per-ticker path on an equivalence test; a runtime instrument check exists and is unit-tested"
+    - "Queue model option with 'ahead' | 'proportional' | 'random'; default 'ahead'; tests demonstrate the difference on a constructed book"
+    - "criteria_version 2 path with per-id K5 exclusion and a named materiality parameter; tests cover exclusion counting and the ABORT threshold"
+    - "docs/PMT-LIP-002_GATE_DRAFT.md exists in the LIP-001 gate format"
+    - "No network access, no daemon or launchd changes, no writes outside the repo; the full suite (851 tests) passes"
+
+autonomy: 2
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 3, max_fix_rounds: 2, max_calls: 28, max_tokens: 1500000, max_cost_usd: 20.0, max_seconds: 5400 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+  ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  engineer:    { provider: claude_cli, timeout_s: 1800, max_turns: 120 }
+  validator:   { provider: agy_cli, mode: read, model: gemini-3.1-pro-high, timeout_s: 900, max_turns: 60, fallback: ollama }
+  synthesizer: { provider: claude_cli }
+
+permissions:
+  engineer:  { workspace: write }
+  validator: { workspace: read, run_tests: true }
