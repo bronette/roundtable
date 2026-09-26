@@ -51,7 +51,8 @@ def _git(path: Path, *args: str) -> str:
     return r.stdout
 
 
-EXCLUDE_PATTERNS = ["__pycache__/", "*.pyc", ".pytest_cache/", ".mypy_cache/", ".ruff_cache/", ".venv/", "node_modules/"]
+EXCLUDE_PATTERNS = ["__pycache__/", "*.pyc", ".pytest_cache/", ".mypy_cache/", ".ruff_cache/", ".venv", "venv", "node_modules", "uv.lock"]
+# no trailing slashes on the venv patterns: a tool may create .venv as a symlink, which a "dir/" pattern does not match
 
 
 def _exclude_caches(ws_path: Path) -> None:

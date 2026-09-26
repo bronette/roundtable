@@ -246,6 +246,7 @@ def test_agent_mode_engineer_edits_worktree_directly(tmp_path):
         (pathlib.Path(workspace) / "test_dd.py").write_text(TEST_PY)
         (pathlib.Path(workspace) / "__pycache__").mkdir()
         (pathlib.Path(workspace) / "__pycache__" / "dd.pyc").write_bytes(b"x")     # agents leave caches behind
+        (pathlib.Path(workspace) / ".venv").symlink_to("/tmp")                     # and sometimes a venv symlink
     cfg, store, pipe, _ = make_pipeline(tmp_path, {
         "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
         "engineer": [Recording(IMPL_AGENT, side_effect=act, expects_prompt_contains=["you are in it, on branch roundtable/"])],
