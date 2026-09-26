@@ -1,0 +1,18 @@
+project:
+  name: edgar-oddlot
+  domain: trading
+  objective: Day-zero capacity check for the odd-lot tender priority candidate from the structural edge hunt.
+  requirements: []
+autonomy: 3
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_calls: 6, max_tokens: 200000, max_cost_usd: 3.0, max_seconds: 1200 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+agents:
+  interpreter:       { provider: claude_cli }
+  experiment_critic: { provider: grok_cli, effort: medium, timeout_s: 600, fallback: agy_cli }
+  synthesizer:       { provider: claude_cli }
+  critic:            { provider: grok_cli, fallback: agy_cli }

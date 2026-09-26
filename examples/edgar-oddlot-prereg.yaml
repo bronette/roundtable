@@ -1,0 +1,27 @@
+hypothesis: >
+  Enough issuer self-tenders with odd-lot priority are filed each year that a $50/month program
+  is arithmetically possible for a 99-share retail participant after broker fees.
+expected_result: >
+  If viable, the multi-year mean of SC TO-I filings mentioning "odd lot" priority is >= 60 per year
+  (5 per month before eligibility filtering, leaving ~2 per month eligible at ~$20 net each).
+method: >
+  EDGAR full-text search (efts.sec.gov) for form SC TO-I, counting DISTINCT filings (accession
+  numbers) per calendar year 2022-2025 for three queries: any tender offer, "odd lot", and
+  "odd lot" AND priority. The narrowest count is an UPPER BOUND on eligible tenders: a mention does
+  not prove the tender was unconditional, uncapped, or open to post-announcement holders.
+data: >
+  EDGAR full-text index, all SC TO-I filings 2022-01-01 to 2026-09-26 (2026 reported but excluded
+  from the mean as a partial year). Disclosure: the 2025 figures (1,272 / 39 / 21) were seen once
+  while testing the counting script before this pre-registration; the criteria below were set on the
+  four-year mean and the thresholds were fixed from the hunt report's arithmetic (kill bar 24/yr),
+  not from that observation.
+success_criteria:
+  - "odd_lot_priority_per_year_mean >= 60"
+failure_criteria:
+  - "odd_lot_priority_per_year_mean < 30"
+assumptions:
+  - "Gross per eligible event ~$59 (hunt report C1 arithmetic); broker voluntary-tender fee $38-50 unless Alpaca's schedule shows otherwise; net per event ~$10-20"
+  - "Eligibility filtering (unconditional, uncapped, post-announcement holders accepted) removes at least half of mentions"
+n_trials: 1
+execution_model: not applicable (filing count)
+command: python /Users/kevinbrunette/code-projects/roundtable/scripts/edgar_oddlot_count.py 2022 2026
