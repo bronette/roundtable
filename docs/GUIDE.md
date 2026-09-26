@@ -54,7 +54,8 @@ PROPOSE     proposer: scope check, plan, assumptions, risks, acceptance criteria
 CRITIQUE    critic: attacks the proposal; ACCEPT / REVISE / REJECT / NEEDS_EVIDENCE / NEEDS_EXPERIMENT
 REVISE      proposer answers every problem (fixed / rejected / deferred) and reissues the plan
             ... CRITIQUE ↔ REVISE up to budget.max_rounds ...
-            on ACCEPT (or REVISE at the round limit) the acceptance criteria are LOCKED
+            on ACCEPT (or REVISE with no blocker at the round limit) the criteria are LOCKED;
+            a blocker still open at the round limit stops the run with status needs_input
 IMPLEMENT   engineer: writes code and tests in the workspace; the orchestrator commits the diff
 TEST        orchestrator runs project.test_command; output is recorded verbatim
 FIX         engineer sees the failing output and tries again (budget.max_fix_rounds times)

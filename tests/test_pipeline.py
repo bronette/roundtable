@@ -102,6 +102,17 @@ def test_reject_ends_run_without_reviser(tmp_path):
     assert store.get_run(st.run_id)["acceptance_json"] is None
 
 
+def test_max_rounds_with_blocker_stops_and_asks(tmp_path):
+    blocker = CRIT_REVISE | {"problems": [{"severity": "blocker", "description": "AC1 expects the wrong value"}]}
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(blocker), Recording(blocker)],
+        "reviser": [Recording(REVISED)], "synthesizer": [Recording(SYNTH, expects_prompt_contains=["RUN STATUS: needs_input"])],
+    }, max_rounds=1)
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "needs_input" and store.get_run(st.run_id)["acceptance_hash"] is None
+    assert "blocker at round limit" in store.open_questions(st.run_id)[0]["question"]
+
+
 def test_max_rounds_implements_with_open_criticisms(tmp_path):
     cfg, store, pipe, _ = make_pipeline(tmp_path, {
         "proposer": [Recording(PROPOSAL)],

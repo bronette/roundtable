@@ -351,9 +351,17 @@ class Pipeline:
             if st.round < self.cfg.budget.max_rounds:
                 st.round += 1
                 return Stage.REVISE, f"{cid} REVISE; round {st.round}/{self.cfg.budget.max_rounds}", refs
+            blockers = [x for x in crit.problems if x.severity == "blocker"]
+            if blockers:
+                # a blocker against the plan at the round limit means the definition of done is wrong;
+                # locking it would make the engineer build to a known-bad target. Stop and ask.
+                for x in blockers:
+                    self.store.add_open_question(st.run_id, "critic", f"blocker at round limit: {x.description}")
+                st.status, st.halt_reason = "needs_input", f"{cid} REVISE with {len(blockers)} blocker(s) at max_rounds; not locking criteria"
+                return Stage.SYNTHESIZE, st.halt_reason, refs
             st.unresolved = True
             self._lock(st, body)
-            return Stage.IMPLEMENT, f"{cid} REVISE at max_rounds; implementing with open criticisms", refs
+            return Stage.IMPLEMENT, f"{cid} REVISE at max_rounds (no blockers); implementing with open criticisms", refs
         if v == Verdict.REJECT:
             self.store.set_proposal_status(st.run_id, pid, "rejected")
             st.status, st.halt_reason = "rejected", f"{cid} rejected {pid}"
