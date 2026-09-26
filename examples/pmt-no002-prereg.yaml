@@ -1,0 +1,20 @@
+hypothesis: >
+  Systematically buying the NO side as a taker in Kalshi's slow retail categories at 70–85¢
+  has positive net edge per contract after fees (the PMT-NO-002 pre-registration of 2026-07-08).
+expected_result: mean net P&L per contract >= +$0.005 with n_settled >= 300, and clustered CI lower bound > -$0.01
+method: >
+  Run the study's own analyzer (kalshi_flb_study.py analyze-no2) on the frozen settled cohort in
+  data/kalshi_flb_study.db. Event-clustered Wald CI (Liang–Zeger, one-way by event). No parameters.
+data: >
+  data/kalshi_flb_study.db, PMT-NO-002 slice, declared 2026-07-08T14:45Z, settled through 2026-09-15.
+  The cohort was collected forward after declaration and never used for tuning.
+success_criteria:
+  - "n_settled >= 300 AND mean_pnl_per_contract >= 0.005 AND wald_ci_lower_event_clustered > -0.01"
+failure_criteria:
+  - "n_settled >= 300 AND (sum_pnl <= 0 OR wald_ci_lower_event_clustered <= -0.01)"
+assumptions:
+  - "Kalshi taker fee schedule as of 2026-07 applied per leg; fills at the ask; no partial fills."
+  - "Settlement P&L per contract as recorded by the study's own resolver."
+n_trials: 1
+execution_model: taker at best ask, Kalshi 2026-07 fee schedule, no partial fills, no latency model
+command: python -m kalshi_flb_study analyze-no2 --db /Users/kevinbrunette/code-projects/PredictionMarketTrader/data/kalshi_flb_study.db

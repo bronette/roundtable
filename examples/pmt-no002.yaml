@@ -1,0 +1,26 @@
+# Live experiment trial: reproduce PredictionMarketTrader's PMT-NO-002 verdict through the
+# pre-registration workflow. The study was killed 2026-09-15; the analyzer is read-only and its
+# hash gate allows reproduction of killed studies.
+project:
+  name: pmt-no002
+  domain: trading
+  repo: ../../PredictionMarketTrader
+  python: ../../PredictionMarketTrader/.venv/bin/python
+  objective: Reproduce the PMT-NO-002 slow-category NO-side taker study verdict from the frozen settled cohort.
+  requirements: []
+
+autonomy: 3
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_calls: 8, max_tokens: 300000, max_cost_usd: 5.0, max_seconds: 1800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  interpreter:       { provider: claude_cli }
+  experiment_critic: { provider: grok_cli, effort: medium, timeout_s: 600, fallback: agy_cli }
+  synthesizer:       { provider: claude_cli }
+  critic:            { provider: grok_cli, fallback: claude_cli }

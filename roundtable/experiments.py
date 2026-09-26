@@ -101,14 +101,7 @@ def run_experiment(cfg: Config, store: Store, eid: str, *, runs_dir: Path, timeo
         except json.JSONDecodeError:
             metrics = {"_error": "metrics file is not valid JSON"}
     else:
-        for line in reversed(out.splitlines()):
-            line = line.strip()
-            if line.startswith("{") and line.endswith("}"):
-                try:
-                    metrics = json.loads(line)
-                    break
-                except json.JSONDecodeError:
-                    continue
+        metrics = _last_json_object(out)
     (exp_dir / "output.txt").write_text(out)
     result = ExperimentResult(command=command_run, exit_code=rc, metrics={k: v for k, v in metrics.items() if isinstance(v, (int, float, str, bool)) or v is None},
                               stdout_tail=out[-4000:], duration_s=duration, commit=commit, timed_out=timed_out)
@@ -116,6 +109,24 @@ def run_experiment(cfg: Config, store: Store, eid: str, *, runs_dir: Path, timeo
     if not intact:
         raise ExperimentError(f"{eid}: pre-registration hash mismatch at result time")
     return result
+
+
+def _last_json_object(text: str) -> dict[str, Any]:
+    """The last JSON object printed to stdout, single-line or pretty-printed, ignoring trailing text."""
+    dec = json.JSONDecoder()
+    best: tuple[int, int, dict[str, Any]] | None = None     # (span, start, obj): the outermost object wins
+    pos = text.rfind("{")
+    tries = 0
+    while pos != -1 and tries < 400:
+        try:
+            obj, end = dec.raw_decode(text[pos:])
+            if isinstance(obj, dict) and (best is None or (end, pos) > (best[0], best[1])):
+                best = (end, pos, obj)
+        except json.JSONDecodeError:
+            pass
+        pos = text.rfind("{", 0, pos)
+        tries += 1
+    return best[2] if best else {}
 
 
 def mechanical_decision(interp: Interpretation) -> Decision:

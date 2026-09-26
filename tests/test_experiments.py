@@ -162,3 +162,11 @@ def test_load_prereg_yaml(tmp_path):
     p = tmp_path / "e.yaml"
     p.write_text("hypothesis: h\nexpected_result: r\nmethod: m\ndata: d\nsuccess_criteria: [a]\nfailure_criteria: [b]\ncommand: \"echo hi\"\n")
     assert load_prereg(p).n_trials == 1
+
+
+def test_metrics_from_pretty_printed_stdout():
+    from roundtable.experiments import _last_json_object
+    out = 'loading...\n{\n  "study_id": "NO-002",\n  "n_settled": 1402,\n  "nested": {"a": 1}\n}\ndone\n'
+    assert _last_json_object(out)["n_settled"] == 1402
+    assert _last_json_object("no json here") == {}
+    assert _last_json_object('{"a": 1} trailing {"b": 2}')["b"] == 2
