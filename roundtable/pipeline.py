@@ -183,8 +183,10 @@ class Pipeline:
         self.on_event(stage, f"{role} ← {agent.provider.name}" + (f"/{agent.cfg.model}" if agent.cfg.model else "")
                              + (" [read mode in worktree]" if readonly else (" [agent mode in worktree]" if workspace else "")))
         if readonly:
-            prompt = (f"You are inside a read-only checkout of the project (branch {st.ws.branch}). Read whatever files you need "
-                      f"to ground your answer; cite paths. You cannot change anything.\n\nFILE TREE:\n{actions.file_tree(st.ws)}\n\n" + prompt)
+            where = ("the project's live checkout, including untracked data, logs and reports" if st.ws.mode == "in-place"
+                     else f"a read-only git worktree of the project (branch {st.ws.branch}); files ignored by git, such as data, logs and reports, are NOT present here")
+            prompt = (f"You are inside {where}. Read whatever files you need to ground your answer; cite paths. "
+                      f"You cannot change anything.\n\nFILE TREE:\n{actions.file_tree(st.ws)}\n\n" + prompt)
         if self.cfg.project.context_files and role != "engineer":
             prompt += "\n\nCONTEXT DOCUMENTS supplied by the operator:\n" + "\n".join(
                 context.evidence_block(name, "document", text, trust="operator") for name, text in self._context_docs())
@@ -201,6 +203,17 @@ class Pipeline:
 
     def h_init(self, st: RunState) -> Transition:
         repo = str(self.cfg.resolve_path(self.cfg.project.repo)) if self.cfg.project.repo else None
+        if self.cfg.project.read_in_place:
+            if not repo:
+                raise ProviderError("read_in_place needs project.repo")
+            if "engineer" in self.agents or self.cfg.autonomy >= 2:
+                raise ProviderError("read_in_place is for audits: no engineer seat and autonomy <= 1")
+            # every seat sees the same live checkout, including gitignored data, logs and reports;
+            # read mode cannot write, so the checkout is safe
+            st.ws = actions.Workspace(Path(repo), "(live checkout, read-only)", "", None, "in-place")
+            st.workspace = Path(repo)
+            self.store.set_ws(st.run_id, {"path": repo, "branch": st.ws.branch, "base_commit": "", "source_repo": None, "mode": "in-place"})
+            return Stage.PROPOSE, "read-only audit in the live checkout (no worktree)", []
         try:
             st.ws = actions.prepare_workspace(st.run_dir, repo, st.run_id, commit=self.cfg.project.base_ref)
         except actions.WorkspaceError as e:

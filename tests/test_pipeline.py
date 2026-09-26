@@ -414,8 +414,8 @@ def test_validator_sees_cumulative_changes_even_when_fix_round_changes_nothing(t
 
 def test_read_mode_roles_get_the_worktree_readonly(tmp_path):
     cfg, store, pipe, _ = make_pipeline(tmp_path, {
-        "proposer": [Recording(PROPOSAL, expects_prompt_contains=["read-only checkout", "FILE TREE"])],
-        "critic": [Recording(CRIT_ACCEPT, expects_prompt_contains=["read-only checkout"])],
+        "proposer": [Recording(PROPOSAL, expects_prompt_contains=["read-only git worktree", "FILE TREE"])],
+        "critic": [Recording(CRIT_ACCEPT, expects_prompt_contains=["read-only git worktree"])],
         "reviser": [], "synthesizer": [Recording(SYNTH)],
     })
     cfg.agents["proposer"].mode = "read"; cfg.agents["critic"].mode = "read"
@@ -486,3 +486,29 @@ def test_base_ref_starts_the_worktree_from_that_branch(tmp_path):
     st = pipe.run(runs_dir=tmp_path / "runs")
     assert (st.ws.path / "a.txt").read_text() == "feature"          # started from the branch, not from main's HEAD
     assert g("rev-parse", "--abbrev-ref", "HEAD").strip() == "main"  # the checkout is untouched
+
+
+def test_read_in_place_uses_the_live_checkout(tmp_path):
+    import subprocess
+    src = tmp_path / "src"; src.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=src, check=True)
+    (src / ".gitignore").write_text("data/\n"); (src / "data").mkdir(); (src / "data" / "live.db").write_text("x")
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "add", "-A"], cwd=src, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "i"], cwd=src, check=True)
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL, expects_prompt_contains=["live checkout", "data/live.db"])],
+        "critic": [Recording(CRIT_ACCEPT)], "reviser": [], "synthesizer": [Recording(SYNTH)],
+    })
+    cfg.project.repo = str(src); cfg.project.read_in_place = True; cfg.agents["proposer"].mode = "read"
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "plan_accepted" and st.ws.mode == "in-place" and st.ws.path == src
+    assert not (tmp_path / "runs" / "t" / st.run_id / "workspace").exists()          # no worktree was made
+
+
+def test_read_in_place_refuses_an_engineer(tmp_path):
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [], "critic": [], "reviser": [], "engineer": [], "validator": [], "synthesizer": [Recording(SYNTH)],
+    }, autonomy=2)
+    cfg.project.repo = str(tmp_path); cfg.project.read_in_place = True
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "halted_error" and "read_in_place" in st.halt_reason

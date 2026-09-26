@@ -42,6 +42,7 @@ class ProjectCfg(BaseModel):
     requirements: list[str] = []
     repo: str | None = None          # any directory or git repo; None = greenfield
     base_ref: str | None = None      # git repos: branch or commit to start from (default: the checkout's HEAD)
+    read_in_place: bool = False      # audits: read-mode seats work in the live checkout (gitignored data, logs, DBs visible); no engineer allowed
     domain: str | None = None        # e.g. "trading" enables the trading critic checklist (M5)
     context_files: list[str] = []    # documents every seat receives as evidence (memos, pre-registrations); size-capped
     test_command: str = "python -m pytest -q"
