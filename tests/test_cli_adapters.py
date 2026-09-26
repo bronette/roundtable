@@ -147,3 +147,36 @@ def test_gemini_agent_mode_uses_yolo_in_workspace(monkeypatch, tmp_path):
     monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(GEMINI_OK)))
     gemini.GeminiCLI("g").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path))
     assert fake_run.argv[fake_run.argv.index("--approval-mode") + 1] == "yolo"
+
+
+AGY_OK = {"conversation_id": "conv1", "status": "SUCCESS",
+          "response": '{"answer":"1/3","reasoning_summary":"r","confidence":1}',
+          "structured_output": {"answer": "1/3", "reasoning_summary": "r", "confidence": 1},
+          "num_turns": 2, "duration_seconds": 21.0,
+          "usage": {"input_tokens": 33829, "output_tokens": 5884, "thinking_tokens": 5829, "cache_read_tokens": 7, "total_tokens": 39713}}
+
+
+def test_antigravity_envelope(monkeypatch):
+    from roundtable.providers.cli import antigravity
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(AGY_OK)))
+    c = antigravity.AntigravityCLI("a", model="gemini-3.8-flash-low").run(
+        [Message("system", "S"), Message("user", "U")], schema=Answer, effort="low", timeout_s=200)
+    assert c.parsed["answer"] == "1/3" and c.usage.input_tokens == 33829 and c.usage.reasoning_tokens == 5829
+    assert c.usage.cached_input_tokens == 7 and c.request_id == "conv1" and c.model == "gemini-3.8-flash-low"
+    argv = fake_run.argv
+    assert argv[argv.index("--mode") + 1] == "plan" and argv[argv.index("--effort") + 1] == "low"
+    assert argv[argv.index("--print-timeout") + 1] == "190s" and argv[2].startswith("SYSTEM INSTRUCTIONS:\nS")
+    assert "Tool use is DISABLED" in argv[2]                      # answer mode: plan mode denies tools silently
+    assert "--dangerously-skip-permissions" not in argv
+
+
+def test_antigravity_agent_mode_and_denied(monkeypatch, tmp_path):
+    from roundtable.providers.cli import antigravity
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(AGY_OK)))
+    antigravity.AntigravityCLI("a").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path))
+    assert "--dangerously-skip-permissions" in fake_run.argv and "--sandbox" in fake_run.argv and "--mode" not in fake_run.argv
+    assert "Tool use is DISABLED" not in fake_run.argv[2]         # agent mode wants tools
+    empty = AGY_OK | {"response": "", "structured_output": None, "denied_actions": [{"action": "read_file"}]}
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(empty)))
+    c = antigravity.AntigravityCLI("a").run([Message("user", "U")], schema=Answer)
+    assert c.parsed is None and c.raw["denied_actions"] == [{"action": "read_file"}]   # goes to the repair round

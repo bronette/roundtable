@@ -64,7 +64,7 @@ class BudgetCfg(BaseModel):
 
 class ProviderCfg(BaseModel):
     type: Literal["cli", "api"]
-    cli: Literal["claude", "codex", "grok", "gemini"] | None = None
+    cli: Literal["claude", "codex", "grok", "gemini", "agy"] | None = None
     sdk: Literal["anthropic", "openai_compat", "gemini", "ollama"] | None = None
     api_key_env: str | None = None
     base_url: str | None = None
@@ -77,7 +77,7 @@ class ProviderCfg(BaseModel):
     @model_validator(mode="after")
     def _shape(self) -> "ProviderCfg":
         if self.type == "cli" and not self.cli:
-            raise ValueError("cli providers need `cli: claude|codex|grok|gemini`")
+            raise ValueError("cli providers need `cli: claude|codex|grok|gemini|agy`")
         if self.type == "api" and not self.sdk:
             raise ValueError("api providers need `sdk: anthropic|openai_compat|gemini|ollama`")
         return self

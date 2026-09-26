@@ -37,6 +37,7 @@ providers:                       # name → how to reach a backend
   claude_cli: { type: cli, cli: claude }
   codex_cli:  { type: cli, cli: codex, max_turns: 3 }
   grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }             # Google Antigravity, Google AI Pro login
   gemini_cli: { type: cli, cli: gemini }          # needs GEMINI_API_KEY
   ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
   anthropic:  { type: api, sdk: anthropic,     api_key_env: ANTHROPIC_API_KEY }
@@ -92,7 +93,7 @@ otherwise the report shows "partly unknown" rather than an invented figure.
 | key | applies to | meaning |
 |---|---|---|
 | `type` | all | `cli` (subprocess, subscription login) or `api` (SDK, key from env). |
-| `cli` | cli | `claude`, `codex`, `grok`, or `gemini` (needs `GEMINI_API_KEY`). |
+| `cli` | cli | `claude`, `codex`, `grok`, `agy` (Google Antigravity, Google AI Pro login), or `gemini` (needs `GEMINI_API_KEY`). |
 | `binary` | cli | Override the executable name or path. |
 | `use_api_key` | cli | Keep `*_API_KEY` in the child environment. Default false: keys are stripped so the CLI uses its login and does not bill the API. |
 | `max_turns` | cli (answer mode) | Turns allowed per answer-mode call. Grok needs more than one on long prompts; default 3. |

@@ -89,6 +89,6 @@ def _redact(argv: list[str]) -> list[str]:
             skip = False
             continue
         out.append(a)
-        if a in ("-p", "--system-prompt", "--single", "--system-prompt-override", "--json-schema"):
+        if a in ("-p", "--print", "--system-prompt", "--single", "--system-prompt-override", "--json-schema"):
             skip = True
     return out

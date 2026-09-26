@@ -20,12 +20,13 @@ Log in to the CLIs you want to use, once, in your own terminal:
 claude login       # claude.ai subscription
 codex login        # ChatGPT
 grok login         # xAI
+agy                # Google Antigravity (Google AI Pro); sign in once interactively
 ollama serve       # local models, then: ollama pull qwen3:30b-a3b
 ```
 
-No API keys are needed for those. Gemini is the exception: Google no longer lets this CLI use a
-personal login, so both the Gemini CLI and the Gemini API provider need `GEMINI_API_KEY` from
-https://aistudio.google.com/apikey (free tier available). Other API providers need the variable
+No API keys are needed for those. For Google models, use `agy` (Antigravity) with a Google AI
+Pro login; the older Gemini CLI no longer accepts personal logins, so it and the Gemini API
+provider need `GEMINI_API_KEY` from https://aistudio.google.com/apikey (free tier available). Other API providers need the variable
 named in the config (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`).
 
 ## First run

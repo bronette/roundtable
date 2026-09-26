@@ -81,6 +81,32 @@ spend 10k+ reasoning tokens and then report `stopReason: cancelled` with empty t
 `--reasoning-effort`; configure a `fallback` provider for seats that use it. Grok is the
 slowest backend as a critic (2 to 4 minutes, 10k to 15k output tokens) and the most thorough.
 
+### agy (Google Antigravity CLI 1.2.x)
+
+Google's replacement for the Gemini CLI for individuals. Uses the Google login (Google AI Pro
+or Ultra); no key. `agy models` lists Gemini 3.x flash and pro at fixed effort levels, plus
+Claude and GPT-OSS models routed through Google.
+
+Answer mode:
+```
+agy --print "<system + prompt>" --output-format json --json-schema '<schema>' --mode plan \
+    --print-timeout <n>s [--model <m>] [--effort low|medium|high|max]
+```
+Agent mode: `--dangerously-skip-permissions --sandbox` with cwd set to the worktree (agy's
+sandbox applies terminal restrictions).
+
+Envelope fields used: `structured_output`, `response`, `status`, `usage.{input_tokens,
+output_tokens, thinking_tokens, cache_read_tokens}`, `conversation_id`, `denied_actions`.
+
+Gotchas: no system-prompt flag, so the system text is prepended to the prompt. In plan mode a
+model that decides to run a command or read a file is auto-denied headlessly and returns an
+empty response; the adapter prepends a "tool use is disabled" notice in answer mode, which was
+enough in testing (the general "do not read or write files" line alone was not). Verified
+2026-09-25: answer mode 16 s on gemini-3.8-flash-medium; agent mode wrote and tested two files
+in a worktree in 51 s. The baseline system prompt is very large:
+34k input tokens with a low-effort flash model and 75k with the default model on a trivial call,
+so budget by calls. Settings live in `~/.gemini/antigravity-cli/settings.json`.
+
 ### gemini (Gemini CLI 0.61.x)
 
 The Gemini CLI refuses the individual Google login (`IneligibleTierError`, "migrate to

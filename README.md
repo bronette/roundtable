@@ -25,6 +25,7 @@ Roundtable can use the CLIs you already log in to, with no API keys:
 | `claude_cli` | `claude -p` headless | claude.ai subscription |
 | `codex_cli`  | `codex exec` | ChatGPT login |
 | `grok_cli`   | `grok --single` | xAI login |
+| `agy_cli`    | `agy --print` (Google Antigravity) | Google AI Pro login |
 | `gemini_cli` | `gemini -p` | `GEMINI_API_KEY` (Google dropped personal logins for this CLI) |
 | `ollama`     | local Ollama | none |
 | `anthropic`, `openai`, `xai`, `gemini` | vendor APIs | `*_API_KEY` env vars |
