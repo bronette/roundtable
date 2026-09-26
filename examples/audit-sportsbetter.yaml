@@ -2,6 +2,7 @@ project:
   name: audit-sportsbetter
   domain: trading
   repo: ../../SportsBetter
+  read_in_place: true              # audits: live checkout, so gitignored data/logs/reports are visible to every seat
   context_files:
     - ../../research/HYPOTHESIS_GATE.md
     - ../../LLM_ONBOARDING.md

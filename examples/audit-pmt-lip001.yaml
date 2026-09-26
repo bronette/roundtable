@@ -4,6 +4,7 @@ project:
   name: audit-pmt-lip001
   domain: trading
   repo: ../../PredictionMarketTrader
+  read_in_place: true              # audits: live checkout, so gitignored data/logs/reports are visible to every seat
   context_files:                                   # outside the repo; injected as evidence for every seat
     - ../../research/PMT-LIP-001_GATE.md
     - ../../research/LIQUIDITY_SUBSIDY_LEAD_2026-09-19.md
