@@ -115,7 +115,7 @@ class OpenAICompatAPI:
 
 class GeminiAPI:
     def __init__(self, name: str, *, model: str | None, api_key_env: str | None):
-        self.name, self.model = name, model or "gemini-2.5-pro"
+        self.name, self.model = name, model or "gemini-flash-latest"   # alias Google maintains; concrete names retire
         self._key = _key(api_key_env, name)
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,

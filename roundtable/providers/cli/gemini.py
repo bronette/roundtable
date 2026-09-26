@@ -50,10 +50,17 @@ class GeminiCLI:
                 env[k] = os.environ[k]
         env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
         with common.answer_dir() as tmp:
+            # The user's ~/.gemini/settings.json may still select the retired personal login, and the CLI
+            # ignores GEMINI_DEFAULT_AUTH_TYPE once a type is saved. Point the CLI at an isolated home whose
+            # settings select API-key auth; it is created per call and discarded with the temp dir.
+            home = os.path.join(tmp, "gemini-home")
+            os.makedirs(os.path.join(home, ".gemini"), exist_ok=True)
+            with open(os.path.join(home, ".gemini", "settings.json"), "w") as f:
+                json.dump({"security": {"auth": {"selectedType": "gemini-api-key"}}}, f)
+            env["GEMINI_CLI_HOME"] = home
             cwd = workspace or tmp
-            argv = [self.binary, "-p", full_prompt, "-o", "json", "--approval-mode", "yolo" if workspace else "plan"]
-            if self.model:
-                argv += ["-m", self.model]
+            argv = [self.binary, "-p", full_prompt, "-o", "json", "--approval-mode", "yolo" if workspace else "plan",
+                    "-m", self.model or "gemini-flash-latest"]
             argv += self.extra_args
             rc, out, err, ms = common.run_argv(argv, cwd=cwd, env=env, timeout_s=timeout_s)
         try:

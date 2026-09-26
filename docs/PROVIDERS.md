@@ -90,8 +90,14 @@ adapter keeps that one variable in the child environment and strips the other ve
 
 Answer mode:
 ```
-gemini -p "<system + schema + prompt>" -o json --approval-mode plan [-m <model>]     GEMINI_CLI_TRUST_WORKSPACE=true
+gemini -p "<system + schema + prompt>" -o json --approval-mode plan -m <model>
+    GEMINI_CLI_TRUST_WORKSPACE=true  GEMINI_CLI_HOME=<per-call temp dir>
 ```
+The per-call home holds a `.gemini/settings.json` selecting `gemini-api-key` auth. This is
+needed because `~/.gemini/settings.json` typically still selects the retired personal login and
+the CLI ignores `GEMINI_DEFAULT_AUTH_TYPE` once a type is saved. Verified 2026-09-25 on 0.61:
+a trivial call answered in 2.9 s on `gemini-3.8-flash` (the `gemini-flash-latest` alias) with a
+7.8k-token baseline system prompt.
 Agent mode: `--approval-mode yolo` with cwd set to the worktree. There is no sandbox flag in
 headless mode beyond the worktree boundary.
 
@@ -109,6 +115,12 @@ files itself.
 | `anthropic` | `anthropic` | one forced tool call whose `input_schema` is the schema | `input_tokens`, `output_tokens`, cache fields |
 | `openai_compat` | `openai` | `response_format: json_schema, strict: true`; xAI via `base_url` | `prompt_tokens`, `completion_tokens`, cached |
 | `gemini` | `google-genai` | `response_mime_type: application/json` + `response_json_schema` | `usage_metadata` |
+
+Gemini API notes: the default model is the `gemini-flash-latest` alias because concrete names
+retire (`gemini-2.5-flash` now returns 404 for new keys). On the free tier the pro models return
+429 quota errors (surfaced as `UsageLimitError`) and the flash models occasionally return
+503 "high demand" (a `ProviderError`); `gemini-flash-lite-latest` answered in under a second
+when the others were busy. Give Gemini seats a `fallback` or use the lite model for cheap roles.
 | `ollama` | `ollama` | `format=<schema>` on `chat()` | `prompt_eval_count`, `eval_count` |
 
 API providers ignore `workspace`; an engineer on an API provider runs in answer mode. Do not

@@ -134,6 +134,8 @@ def test_gemini_envelope_requires_key_and_parses(monkeypatch):
     assert c.parsed["answer"] == "a" and c.model == "gemini-2.5-pro"
     assert c.usage.input_tokens == 30 and c.usage.reasoning_tokens == 9 and c.usage.cached_input_tokens == 4
     assert fake_run.env.get("GEMINI_API_KEY") == "k" and fake_run.env.get("GEMINI_CLI_TRUST_WORKSPACE") == "true"
+    home = fake_run.env.get("GEMINI_CLI_HOME")
+    assert home and home.endswith("gemini-home")   # isolated home selecting API-key auth (dir is gone after the call)
     assert "ANTHROPIC_API_KEY" not in fake_run.env or True   # other vendors' keys are still stripped
     assert fake_run.argv[fake_run.argv.index("--approval-mode") + 1] == "plan"
     assert "JSON Schema" in fake_run.argv[2] and "SYSTEM INSTRUCTIONS" in fake_run.argv[2]
