@@ -470,3 +470,19 @@ def test_project_env_reaches_the_test_command(tmp_path):
     import os; os.environ["ANTHROPIC_API_KEY"] = "leak"
     st = pipe.run(runs_dir=tmp_path / "runs")
     assert st.status == "implemented" and store.test_runs(st.run_id)[0]["passed"] == 1
+
+
+def test_base_ref_starts_the_worktree_from_that_branch(tmp_path):
+    import subprocess
+    src = tmp_path / "src"; src.mkdir()
+    g = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=src, check=True, capture_output=True, text=True).stdout
+    g("init", "-q", "-b", "main"); (src / "a.txt").write_text("main"); g("add", "-A"); g("commit", "-q", "-m", "m")
+    g("checkout", "-q", "-b", "feature"); (src / "a.txt").write_text("feature"); g("commit", "-qam", "f"); g("checkout", "-q", "main")
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [Recording(IMPL_ANSWER)], "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)],
+    }, autonomy=2)
+    cfg.project.repo = str(src); cfg.project.base_ref = "feature"
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert (st.ws.path / "a.txt").read_text() == "feature"          # started from the branch, not from main's HEAD
+    assert g("rev-parse", "--abbrev-ref", "HEAD").strip() == "main"  # the checkout is untouched

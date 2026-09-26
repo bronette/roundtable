@@ -41,6 +41,7 @@ class ProjectCfg(BaseModel):
     objective: str
     requirements: list[str] = []
     repo: str | None = None          # any directory or git repo; None = greenfield
+    base_ref: str | None = None      # git repos: branch or commit to start from (default: the checkout's HEAD)
     domain: str | None = None        # e.g. "trading" enables the trading critic checklist (M5)
     context_files: list[str] = []    # documents every seat receives as evidence (memos, pre-registrations); size-capped
     test_command: str = "python -m pytest -q"

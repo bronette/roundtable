@@ -66,6 +66,7 @@ permissions:                     # what the orchestrator will do with a role's o
 | `objective` | required | The task. Sent verbatim to every role. |
 | `requirements` | `[]` | Numbered list. The proposer must cover each with an acceptance criterion; the validator checks each. |
 | `repo` | none | Directory to work on. A git repo gets a **worktree** on a new branch `roundtable/<run_id>`; a plain directory is **copied** and given a local git repo; omitted means a **greenfield** empty workspace. The original is never modified except for the new branch ref. |
+| `base_ref` | checkout HEAD | Git repos only: the branch or commit the run's worktree starts from. Use it to continue work on a branch a previous run produced. |
 | `context_files` | `[]` | Documents (memos, pre-registrations, specs) injected as evidence blocks into every seat's prompt except the engineer's. Paths relative to the config file. Each is capped at 20k characters. |
 | `test_command` | `python -m pytest -q` | Run by the orchestrator in the workspace with API keys stripped from the environment and a timeout. Exit code 0 means pass. pytest summary counts are parsed when present. |
 | `python` | roundtable's own interpreter | Substituted when `test_command` starts with `python` or `python3`. Point this at the target repo's venv interpreter when it has one. |

@@ -202,7 +202,7 @@ class Pipeline:
     def h_init(self, st: RunState) -> Transition:
         repo = str(self.cfg.resolve_path(self.cfg.project.repo)) if self.cfg.project.repo else None
         try:
-            st.ws = actions.prepare_workspace(st.run_dir, repo, st.run_id)
+            st.ws = actions.prepare_workspace(st.run_dir, repo, st.run_id, commit=self.cfg.project.base_ref)
         except actions.WorkspaceError as e:
             raise ProviderError(f"workspace: {e}") from e
         self.store.set_ws(st.run_id, {"path": str(st.ws.path), "branch": st.ws.branch, "base_commit": st.ws.base_commit,
