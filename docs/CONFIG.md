@@ -70,6 +70,7 @@ permissions:                     # what the orchestrator will do with a role's o
 | `test_command` | `python -m pytest -q` | Run by the orchestrator in the workspace with API keys stripped from the environment and a timeout. Exit code 0 means pass. pytest summary counts are parsed when present. |
 | `python` | roundtable's own interpreter | Substituted when `test_command` starts with `python` or `python3`. Point this at the target repo's venv interpreter when it has one. |
 | `test_timeout_s` | 300 | |
+| `env` | `{}` | Extra environment variables for the test command and experiment commands, for example `DB_PATH` when tests read a developer database that a fresh worktree does not have. API keys are still stripped. |
 
 ## `autonomy`
 

@@ -78,6 +78,7 @@ def run_experiment(cfg: Config, store: Store, eid: str, *, runs_dir: Path, timeo
     metrics_path = exp_dir / "metrics.json"
     env["ROUNDTABLE_METRICS"] = str(metrics_path)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env.update(cfg.project.env)
     command = prereg["command"]
     argv = shlex.split(command)
     if argv and argv[0] in ("python", "python3"):

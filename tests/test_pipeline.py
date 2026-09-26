@@ -456,3 +456,16 @@ def test_engineer_timeout_after_editing_commits_partial_work(tmp_path):
     assert any("committing partial changes" in t for _, t in events)
     eng = [r for r in store.calls(st.run_id) if r["role"] == "engineer"]
     assert len(eng) == 1 and eng[0]["valid"] == 0                       # logged as failed, not retried
+
+
+def test_project_env_reaches_the_test_command(tmp_path):
+    env_test = "import os\n\ndef test_env():\n    assert os.environ.get('MY_DB') == 'x.db'\n    assert 'ANTHROPIC_API_KEY' not in os.environ\n"
+    impl = IMPL_ANSWER | {"files": [{"path": "test_env.py", "content": env_test}]}
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL)], "critic": [Recording(CRIT_ACCEPT)], "reviser": [],
+        "engineer": [Recording(impl)], "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE)],
+    }, autonomy=2)
+    cfg.project.env = {"MY_DB": "x.db"}
+    import os; os.environ["ANTHROPIC_API_KEY"] = "leak"
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "implemented" and store.test_runs(st.run_id)[0]["passed"] == 1

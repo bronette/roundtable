@@ -169,12 +169,14 @@ def cumulative_changes(ws: Workspace) -> tuple[str, list[str]]:
 _PYTEST_SUMMARY = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed)")
 
 
-def run_tests(ws: Workspace, command: str, *, python: str | None = None, timeout_s: float = 300.0) -> TestResult:
+def run_tests(ws: Workspace, command: str, *, python: str | None = None, timeout_s: float = 300.0,
+              extra_env: dict[str, str] | None = None) -> TestResult:
     argv = shlex.split(command)
     if argv and argv[0] in ("python", "python3"):
         argv[0] = python or sys.executable
     env = scrubbed_env(keep_api_keys=False)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env.update(extra_env or {})
     t0 = time.monotonic()
     try:
         r = subprocess.run(argv, cwd=ws.path, env=env, capture_output=True, text=True, timeout=timeout_s, stdin=subprocess.DEVNULL)

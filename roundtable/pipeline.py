@@ -290,7 +290,7 @@ class Pipeline:
         p, ws = self.cfg.project, st.ws
         assert ws and st.impl_id
         python = str(self.cfg.resolve_path(p.python)) if p.python else None
-        result = actions.run_tests(ws, p.test_command, python=python, timeout_s=p.test_timeout_s)
+        result = actions.run_tests(ws, p.test_command, python=python, timeout_s=p.test_timeout_s, extra_env=p.env)
         art = self.store.add_artifact(st.run_id, call_id=None, kind="test_output", name=f"test{st.fix_round}.txt",
                                       content=result.stdout_tail, artifacts_dir=st.run_dir / "artifacts")
         st.test_id = self.store.add_test_run(st.run_id, implementation_id=st.impl_id, result=result.model_dump(), output_artifact_id=art)

@@ -46,6 +46,7 @@ class ProjectCfg(BaseModel):
     test_command: str = "python -m pytest -q"
     python: str | None = None        # interpreter for `python ...` test commands; default: roundtable's own
     test_timeout_s: float = 300.0
+    env: dict[str, str] = {}         # extra environment for the test command and experiment commands (e.g. DB_PATH); API keys stay stripped
 
 
 class ProviderBudget(BaseModel):

@@ -7,6 +7,8 @@ project:
   python: ../../PredictionMarketTrader/.venv/bin/python
   test_command: python -m pytest -q tests/ -p no:cacheprovider
   test_timeout_s: 900
+  env:
+    DB_PATH: /Users/kevinbrunette/code-projects/PredictionMarketTrader/data/paper_trades.db   # 6 dashboard tests read the dev DB
   context_files:
     - ../../research/PMT-LIP-001_GATE.md
     - ../../research/HYPOTHESIS_GATE.md
@@ -40,7 +42,7 @@ project:
 autonomy: 2
 runs_dir: ../runs
 pricing: pricing.yaml
-budget: { max_rounds: 3, max_fix_rounds: 2, max_calls: 28, max_tokens: 1500000, max_cost_usd: 20.0, max_seconds: 5400 }
+budget: { max_rounds: 3, max_fix_rounds: 2, max_calls: 28, max_tokens: 1500000, max_cost_usd: 20.0, max_seconds: 10800 }
 
 providers:
   claude_cli: { type: cli, cli: claude }
@@ -52,7 +54,7 @@ agents:
   proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
   critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
   reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
-  engineer:    { provider: claude_cli, timeout_s: 1800, max_turns: 120 }
+  engineer:    { provider: claude_cli, timeout_s: 3600, max_turns: 150 }
   validator:   { provider: agy_cli, mode: read, model: gemini-3.1-pro-high, timeout_s: 900, max_turns: 60, fallback: ollama }
   synthesizer: { provider: claude_cli }
 
