@@ -1,0 +1,67 @@
+# Revision pass on the LIP-002 branch: the five critiques left open at the round limit, plus the
+# projector safety margin the timing measurement showed is needed. Continues the existing branch.
+project:
+  name: pmt-lip002
+  domain: trading
+  repo: ../../PredictionMarketTrader
+  base_ref: roundtable/run_45dc3c0a75
+  python: ../../PredictionMarketTrader/.venv/bin/python
+  test_command: python -m pytest -q tests/ -p no:cacheprovider
+  test_timeout_s: 900
+  env:
+    DB_PATH: /Users/kevinbrunette/code-projects/PredictionMarketTrader/data/paper_trades.db
+  context_files:
+    - ../../research/PMT-LIP-001_GATE.md
+    - ../runs/pmt-lip002/run_45dc3c0a75/report.md
+    - ../runs/pmt-lip002/notes/TIMING_2026-09-26.md
+  objective: >
+    Revise the LIP-002 preparation on this branch (the previous run's report and a timing
+    measurement are supplied as context). Fix exactly these six items, additively, without
+    changing LIP-001 behaviour: (1) project_runtime: sample warmed slices at several offsets
+    inside the window (not an unwarmed prefix), use the upper tail of the per-row rates, include
+    the projector's own scan cost, and apply a declared safety factor (a criteria parameter,
+    default 2.0) so that on the measured day (1283 s actual vs 1021 s projected) the projection
+    is not short; (2) the runtime-check CLI must be blinded like analyze_v2: refuse before
+    earliest_analysis_at unless an explicit --instrument-only flag is given, and in that mode
+    never compute fills or markouts (time the scan with a no-op simulator); (3) K5 in v2: an id
+    whose parameters change and revert within its period is still excluded (any within-period
+    change, matching v1), and a coverage-eligible set of size zero returns an explicit verdict
+    (no ZeroDivisionError); (4) the reward-down haircut: replace the gross programme-reward
+    delta with the quoter's share-weighted subsidy (share × delta × prorate), and freeze the
+    exact dollar definition in the draft's PASS row; (5) window quarantine: make_criteria_v2
+    rejects any window that intersects the LIP-001 collection window [2026-09-21T18:00Z,
+    2026-10-12T18:00Z], with a documented override parameter that must be set explicitly and is
+    written into the criteria hash; (6) record the measured timing in the draft's instrument
+    section and state the safety factor. Add tests for each item.
+  requirements:
+    - "LIP-001 unchanged: v1 criteria hash, analyze() per-ticker path, verdict(), scripts and launchd untouched; all existing tests pass unmodified"
+    - "project_runtime samples warmed slices at >= 3 offsets, uses the max per-row rate, adds its own cost, multiplies by a declared safety factor; a test with a synthetic tape whose warmed rows cost more than its prefix shows the old estimator short and the new one not"
+    - "runtime-check refuses before earliest_analysis_at without --instrument-only; --instrument-only times a no-op simulator and its output has no P&L keys; both are tested"
+    - "K5 v2: revert-within-period is excluded; empty eligible set yields an explicit verdict; both tested"
+    - "Haircut uses share-weighted subsidy; definition frozen in the draft PASS row; test with a hand-computed value"
+    - "make_criteria_v2 rejects LIP-001-overlapping windows unless an explicit override parameter is set, and the override is part of the criteria hash; tested"
+    - "docs/PMT-LIP-002_GATE_DRAFT.md instrument section cites the measured 1283 s / 30 min-per-day figure and the safety factor"
+    - "Full suite passes (python -m pytest -q tests/ exits 0)"
+
+autonomy: 2
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_fix_rounds: 2, max_calls: 24, max_tokens: 1500000, max_cost_usd: 20.0, max_seconds: 10800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+  ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  engineer:    { provider: claude_cli, timeout_s: 3600, max_turns: 150 }
+  validator:   { provider: agy_cli, mode: read, model: gemini-3.1-pro-high, timeout_s: 900, max_turns: 60, fallback: ollama }
+  synthesizer: { provider: claude_cli }
+
+permissions:
+  engineer:  { workspace: write }
+  validator: { workspace: read, run_tests: true }
