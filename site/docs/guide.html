@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>User guide · Roundtable</title>
+<meta name="description" content="How each stage works, what &quot;solved&quot; means, reading the report, resume, experiments, trading projects, troubleshooting.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23b8763b'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23a1622d'/%3E%3Ccircle cx='32' cy='6' r='5' fill='%23171c26'/%3E%3Ccircle cx='32' cy='58' r='5' fill='%23171c26'/%3E%3Ccircle cx='6' cy='32' r='5' fill='%23171c26'/%3E%3Ccircle cx='58' cy='32' r='5' fill='%23d24b3f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;--chalk:#f3f4f0;--paper:#fff;--ink:#171c26;--ink-2:#4a5160;--ink-3:#7b8290;--line:#d9dcd6;--oak:#b8763b;--oak-2:#8f5a2a;--felt:#2f6b4f;--brass:#c9a24d;--signal:#d24b3f;--code-bg:#1d2330;--code-ink:#e9ecf1;--inline:#e9eae4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}}
+:root[data-theme="dark"]{color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}
+*{box-sizing:border-box}body{margin:0;background:var(--chalk);color:var(--ink);font:400 16.5px/1.6 "IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--oak-2)}a:hover{color:var(--oak)}
+h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-variation-settings:"opsz" 96;letter-spacing:-.02em;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:800}h2{font-size:1.6rem;font-weight:800;margin-top:2.4em;padding-top:1em;border-top:1px solid var(--line)}h3{font-size:1.15rem;font-weight:600;margin-top:1.8em}h4{font-size:1rem;font-weight:600;margin-top:1.4em}
+h2+*,h3+*,h4+*{margin-top:.6em}
+p,ul,ol{margin:0 0 1em}li{margin:.25em 0}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--inline);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:.86rem;line-height:1.6;margin:0 0 1.2em}pre code{background:none;padding:0;font-size:inherit;color:inherit}
+table{border-collapse:collapse;width:100%;margin:0 0 1.4em;font-size:.93rem;display:block;overflow-x:auto}th,td{text-align:left;vertical-align:top;padding:.55em .7em;border-bottom:1px solid var(--line)}th{font-weight:600;color:var(--ink-2);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+blockquote{margin:0 0 1em;padding:.2em 1em;border-left:4px solid var(--brass);color:var(--ink-2)}
+hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--chalk) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.15rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:6px;flex-wrap:wrap}nav a{text-decoration:none;font-size:.92rem;font-weight:500;color:var(--ink-2);padding:.45em .7em;border-radius:8px}nav a:hover,nav a.on{background:var(--paper);color:var(--ink)}
+.wrap{max-width:1120px;margin-inline:auto;padding-inline:clamp(16px,4vw,40px)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(24px,4vw,56px);padding-block:36px 72px}
+aside{position:sticky;top:76px;align-self:start;font-size:.9rem}aside .eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:8px}
+aside a{display:block;color:var(--ink-2);text-decoration:none;padding:.3em 0}aside a.on{color:var(--ink);font-weight:600}aside .toc a{padding-left:0;font-size:.85rem;color:var(--ink-3)}aside .toc{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;max-height:60vh;overflow:auto}
+.layout>*{min-width:0}main{max-width:76ch;min-width:0}main .lede{font-size:1.1rem;color:var(--ink-2);margin:.6em 0 1.6em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin-top:24px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px}.card h3{margin:0}.card p{margin:0;color:var(--ink-2);font-size:.95rem}
+footer{border-top:1px solid var(--line);padding-block:28px;font-size:.88rem;color:var(--ink-3)}footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+@media (max-width:820px){.layout{grid-template-columns:1fr}aside{position:static}aside .toc{display:none}}
+@media (max-width:640px){nav a:not(.gh){display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#b8763b"/><circle cx="32" cy="32" r="14" fill="#a1622d"/><circle cx="32" cy="6" r="5" fill="currentColor"/><circle cx="32" cy="58" r="5" fill="currentColor"/><circle cx="6" cy="32" r="5" fill="currentColor"/><circle cx="58" cy="32" r="5" fill="#d24b3f"/></svg>Roundtable</a>
+  <nav aria-label="Site"><a href="/">Home</a><a href="/docs/" class="on">Docs</a><a class="gh" href="https://github.com/bronette/roundtable">GitHub</a></nav>
+</div></header>
+<div class="wrap layout"><aside><div class="eyebrow">Documentation</div><a href="/docs/tutorial.html">Tutorial</a><a href="/docs/guide.html" class="on">User guide</a><a href="/docs/config.html">Configuration</a><a href="/docs/providers.html">Providers</a><a href="/docs/design.html">Design notes</a><div class="toc"><a href="#install" style="padding-left:0px">Install</a><a href="#first-run" style="padding-left:0px">First run</a><a href="#what-a-run-does" style="padding-left:0px">What a run does</a><a href="#what-solved-means" style="padding-left:12px">What &quot;solved&quot; means</a><a href="#who-is-in-charge" style="padding-left:12px">Who is in charge</a><a href="#reading-the-report" style="padding-left:0px">Reading the report</a><a href="#resuming-a-halted-run" style="padding-left:0px">Resuming a halted run</a><a href="#retries" style="padding-left:0px">Retries</a><a href="#working-on-an-existing-project" style="padding-left:0px">Working on an existing project</a><a href="#engineer-modes" style="padding-left:0px">Engineer modes</a><a href="#budgets-and-quota" style="padding-left:0px">Budgets and quota</a><a href="#choosing-roles" style="padding-left:0px">Choosing roles</a><a href="#troubleshooting" style="padding-left:0px">Troubleshooting</a><a href="#layout-on-disk" style="padding-left:0px">Layout on disk</a><a href="#experiments-pre-registered" style="padding-left:0px">Experiments (pre-registered)</a><a href="#trading-projects" style="padding-left:0px">Trading projects</a></div></aside><main><h1 id="user-guide">User guide</h1>
+<p>Roundtable runs several LLMs as a team of specialists on one objective. A Python
+orchestrator owns the workflow; the models never talk to each other. Each one receives a
+purpose-built context, replies with schema-validated JSON, and the orchestrator decides what
+happens next. Every call, verdict, file change, and test result is logged to SQLite.</p>
+<h2 id="install">Install</h2>
+<pre><code class="language-bash">git clone https://github.com/bronette/roundtable
+cd roundtable
+uv sync                       # Python 3.12+, creates .venv
+uv run roundtable --help
+</code></pre>
+<p>Log in to the CLIs you want to use, once, in your own terminal:</p>
+<pre><code class="language-bash">claude login       # claude.ai subscription
+codex login        # ChatGPT
+grok login         # xAI
+agy                # Google Antigravity (Google AI Pro); sign in once interactively
+ollama serve       # local models, then: ollama pull qwen3:30b-a3b
+</code></pre>
+<p>No API keys are needed for those. For Google models, use <code>agy</code> (Antigravity) with a Google AI
+Pro login; the older Gemini CLI no longer accepts personal logins, so it and the Gemini API
+provider need <code>GEMINI_API_KEY</code> from https://aistudio.google.com/apikey (free tier available). Other API providers need the variable
+named in the config (<code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>XAI_API_KEY</code>).</p>
+<h2 id="first-run">First run</h2>
+<pre><code class="language-bash">uv run roundtable providers -c examples/project.yaml
+</code></pre>
+<p>prints each configured provider and whether it can be used right now. Then:</p>
+<pre><code class="language-bash">uv run roundtable run examples/project.yaml
+</code></pre>
+<p>The example objective is a small pure-Python function with tests. A full run at autonomy 2
+makes six to nine model calls and takes ten to twenty minutes, most of it Grok thinking.
+The console shows each stage as it happens; the report lands at
+<code>runs/dd-demo/&lt;run_id&gt;/report.md</code>.</p>
+<h2 id="what-a-run-does">What a run does</h2>
+<pre><code>INIT        prepare the workspace (worktree, copy, or empty dir), all on a new git branch
+PROPOSE     proposer: scope check, plan, assumptions, risks, acceptance criteria
+CRITIQUE    critic: attacks the proposal; ACCEPT / REVISE / REJECT / NEEDS_EVIDENCE / NEEDS_EXPERIMENT
+REVISE      proposer answers every problem (fixed / rejected / deferred) and reissues the plan
+            ... CRITIQUE ↔ REVISE up to budget.max_rounds ...
+            on ACCEPT (or REVISE with no blocker at the round limit) the criteria are LOCKED;
+            a blocker still open at the round limit stops the run with status needs_input
+IMPLEMENT   engineer: writes code and tests in the workspace; the orchestrator commits the diff
+TEST        orchestrator runs project.test_command; output is recorded verbatim
+FIX         engineer sees the failing output and tries again (budget.max_fix_rounds times)
+REVIEW      validator: checks every locked criterion against the files and the real test output
+SYNTHESIZE  synthesizer: what was built, what the tests say, disagreements, risks, next step
+DONE        report written
+</code></pre>
+<p>Anything can halt the run: a budget cap, a provider outage, a usage limit, invalid output
+twice in a row. A halted run still gets a report; the synthesizer is allowed one call past the
+budget for it, and if it cannot run either, the report is built from the database alone.</p>
+<h3 id="what-solved-means">What &quot;solved&quot; means</h3>
+<p>A run is only a success when four observable things are all true:</p>
+<ol>
+<li>every locked acceptance criterion is marked satisfied by the validator <strong>with a citation</strong>
+(a file and line, a test name that appears in the output, or a quoted output line);</li>
+<li>the test command was actually executed by the orchestrator and exited 0;</li>
+<li>no blocker-severity problem is open from the critic or the validator;</li>
+<li>the synthesizer's overall verdict is ACCEPT, with any disagreements it could not resolve
+listed rather than hidden.</li>
+</ol>
+<p>A model saying the work is done is never evidence. The validator deliberately does not see the
+proposer's reasoning or the critic's opinions; it judges the artifact and the test output.</p>
+<h3 id="who-is-in-charge">Who is in charge</h3>
+<p>The orchestrator, which is code. It picks the next stage from a fixed transition table. Within a
+stage one role owns the output: the proposer owns the plan, the engineer owns the diff, the
+validator owns pass or fail, the synthesizer owns the report. The critic owns nothing; it can
+only block. No agent can declare victory or skip a stage.</p>
+<h2 id="reading-the-report">Reading the report</h2>
+<p><code>report.md</code> has, in order:</p>
+<ul>
+<li><strong>Status and verdict.</strong> <code>implemented</code> means tests passed and the validator ran. Other statuses:
+<code>implemented_with_objections</code>, <code>tests_failing</code>, <code>plan_accepted</code> (autonomy 1), <code>rejected</code>,
+<code>needs_input</code>, <code>needs_decomposition</code>, <code>advised</code> (autonomy 0), <code>halted_budget</code>,
+<code>halted_usage_limit</code>, <code>halted_error</code>.</li>
+<li><strong>What was built, test results, disagreements, remaining risks, recommended next experiment.</strong>
+Written by the synthesizer from the run's records. Disagreements list both positions; a
+criticism the proposer rejected or deferred always appears here.</li>
+<li><strong>Proposal history.</strong> Every proposal and the critique it received, with each problem and its
+severity, and every criticism the proposer rejected or deferred with the reason.</li>
+<li><strong>Acceptance criteria.</strong> The locked list with its timestamp.</li>
+<li><strong>Implementation.</strong> Branch, commits, changed files, known gaps, diff artifacts.</li>
+<li><strong>Test runs.</strong> Command, exit code, counts, duration, per attempt.</li>
+<li><strong>Validator review.</strong> One row per criterion: satisfied or not, with the cited evidence.</li>
+<li><strong>Decisions.</strong> Every state transition with its reason.</li>
+<li><strong>Usage.</strong> Calls, tokens, and cost per provider. Cost shows only for models in the pricing table.</li>
+</ul>
+<p>For the full audit trail:</p>
+<pre><code class="language-bash">uv run roundtable calls &lt;run_id&gt; -c examples/project.yaml            # one line per call
+uv run roundtable calls &lt;run_id&gt; --failed                             # only invalid or errored attempts
+uv run roundtable calls &lt;run_id&gt; --role critic --json                 # filter, machine-readable
+uv run roundtable call-show &lt;call_id&gt;                                 # one call in full: messages, reply, command line
+</code></pre>
+<p>Every call shows role, provider, model, attempt, tokens, latency, and cost with its source:
+<code>table</code> when the model is in <code>pricing.yaml</code>, <code>reported</code> when the CLI supplied its own estimate.</p>
+<h2 id="resuming-a-halted-run">Resuming a halted run</h2>
+<p>A run that halted (budget, provider outage, usage limit, invalid output twice) can be restarted
+at the stage that failed. Nothing completed is repeated or paid for again: the proposals,
+critiques, locked criteria, workspace, commits, and test results are all reloaded from the
+database, and the run continues from there.</p>
+<pre><code class="language-bash">uv run roundtable resume &lt;run_id&gt; -c examples/project.yaml
+uv run roundtable resume &lt;run_id&gt; --max-calls 24 --max-cost 10      # raise caps if the halt was a budget
+</code></pre>
+<p>Budget counters continue from the run's recorded usage, so a budget halt needs a higher cap
+to make progress. A resumed run records &quot;resumed by operator&quot; in its decisions and rewrites
+the report at the end. Finished runs cannot be resumed.</p>
+<h2 id="retries">Retries</h2>
+<p>Transient provider errors (timeouts, 5xx, dropped streams) are retried with backoff, three
+seconds then nine then twenty-seven, up to <code>retries</code> times per seat (default 2). Every failed
+attempt is in the audit log with its error. Usage-limit errors, missing keys or binaries, and
+invalid output are not retried: those go to the repair round or the fallback provider instead.</p>
+<h2 id="working-on-an-existing-project">Working on an existing project</h2>
+<p>Set <code>project.repo</code> to the directory. If it is a git repository, each run gets its own
+<strong>worktree</strong> on a new branch <code>roundtable/&lt;run_id&gt;</code>; the engineer works there and the
+orchestrator commits there. Your checked-out branch and working tree are never touched.</p>
+<p>When the run finishes:</p>
+<pre><code class="language-bash">cd ~/your/repo
+git log main..roundtable/&lt;run_id&gt;          # what the run committed
+git diff main...roundtable/&lt;run_id&gt;        # the full change
+git merge roundtable/&lt;run_id&gt;              # if you want it
+git worktree remove runs/&lt;project&gt;/&lt;run_id&gt;/workspace   # clean up (path is in the report)
+git branch -D roundtable/&lt;run_id&gt;          # if you do not
+</code></pre>
+<p>A directory that is not a git repo is copied into the workspace (skipping <code>.git</code>, <code>.venv</code>,
+<code>node_modules</code>, caches) and given a local git repo so diffs and commits still work. Omitting
+<code>repo</code> gives an empty workspace, which is what the example uses.</p>
+<p>Set <code>project.test_command</code> to whatever proves the work (<code>python -m pytest tests/ -q</code>,
+<code>npm test</code>, <code>make check</code>). Set <code>project.python</code> to the repo's own interpreter when the tests
+need its dependencies.</p>
+<h2 id="engineer-modes">Engineer modes</h2>
+<p><strong>Agent mode</strong> (default for CLI providers): the CLI is launched inside the worktree with its
+own tools, exactly as you would run <code>codex</code> or <code>claude</code> there by hand. It reads, edits, and runs
+tests itself, then returns a short JSON summary. The orchestrator captures the resulting diff.
+Containment: Codex runs under its workspace-write sandbox; Claude Code auto-accepts edits inside
+the directory and shell is limited to python, pytest, and uv; Grok has no sandbox, only the
+worktree boundary and the prompt. Nothing outside the worktree is writable by design, and the
+worktree is disposable.</p>
+<p><strong>Answer mode</strong> (default for API providers, or <code>mode: answer</code>): the model returns complete
+files as JSON; the orchestrator validates paths (no <code>..</code>, no absolute paths, nothing under
+<code>.git</code>) and writes them. Slower to converge on real repos because the model cannot explore,
+but it works with any backend including local models.</p>
+<h2 id="budgets-and-quota">Budgets and quota</h2>
+<p>Caps in <code>budget</code> are checked before every call. Two things to know about CLI providers:</p>
+<ul>
+<li>Each call carries the tool's own system prompt, roughly 10k to 15k tokens for Claude and Grok
+and about 14k for Codex, before your content. Budget by calls as much as by tokens.</li>
+<li>Subscriptions have rolling five-hour and weekly limits shared with your interactive use. A
+usage-limit error halts the run with status <code>halted_usage_limit</code>; the report is still written.</li>
+</ul>
+<p>The reported dollar figures for CLI calls are the vendor's list-price estimates, marked
+<code>billing: subscription</code> in the database. They tell you what a run would cost on the API; they
+are not a bill.</p>
+<h2 id="choosing-roles">Choosing roles</h2>
+<p>Observed so far on the example project:</p>
+<ul>
+<li><strong>Grok as critic</strong> is the strongest reviewer of the three but slow (two to four minutes and
+10k+ output tokens per critique at medium effort) and occasionally returns nothing on long
+prompts. Give it <code>fallback: claude_cli</code> so a stalled critique does not end the run.</li>
+<li><strong>Claude as proposer, reviser, and synthesizer</strong> is fast (30 to 50 seconds) and writes precise
+criteria and honest reports.</li>
+<li><strong>Codex as engineer</strong> in agent mode edits and tests inside the worktree.</li>
+<li><strong>A local model as validator</strong> is free and independent, but weak: qwen3 30B got a simple
+drawdown question wrong twice. It is fine for checking test output against criteria; do not
+expect it to catch subtle logic errors. Any backend can take any role; swap in the config.</li>
+</ul>
+<p>Point critic and proposer at different vendors when you can. Independence is the point.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>symptom</th>
+<th>cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent 'x' cannot run: ... not on PATH</code></td>
+<td>Install or log in to that CLI, or point the role at another provider.</td>
+</tr>
+<tr>
+<td><code>... API_KEY not set</code></td>
+<td>Export the variable, or use a <code>cli</code> provider instead.</td>
+</tr>
+<tr>
+<td>Grok call halts with <code>timed out after 300s</code></td>
+<td>Raise <code>timeout_s</code> on the critic (600 is safe) or set <code>effort: low</code>.</td>
+</tr>
+<tr>
+<td>Grok <code>model did not produce structured output</code></td>
+<td>On long prompts (a revised proposal, for example) Grok sometimes spends 10k+ tokens reasoning and then cancels its own turn with no text, at any effort level. The attempt is logged and a repair round runs. Give the critic a <code>fallback:</code> provider so the run continues; the report notes who answered.</td>
+</tr>
+<tr>
+<td>status <code>halted_error: workspace: ...</code></td>
+<td><code>project.repo</code> does not exist, or a worktree for that branch already exists.</td>
+</tr>
+<tr>
+<td>tests &quot;command not found&quot;</td>
+<td><code>test_command</code> needs a tool that is not on PATH inside the workspace; set <code>project.python</code> or use a full path.</td>
+</tr>
+<tr>
+<td>cost shows &quot;partly unknown&quot;</td>
+<td>Add the model to <code>pricing.yaml</code>. Deliberate: unknown prices are never guessed.</td>
+</tr>
+<tr>
+<td>Claude CLI bills your API key</td>
+<td>It will if <code>ANTHROPIC_API_KEY</code> is set and <code>use_api_key: true</code>. By default keys are stripped from CLI child processes.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="layout-on-disk">Layout on disk</h2>
+<pre><code>runs/&lt;project&gt;/
+  roundtable.db                    every run for this project
+  &lt;run_id&gt;/
+    workspace/                     the worktree or copy the engineer worked in
+    artifacts/                     diffs and test output, one file per artifact id
+    report.md
+</code></pre>
+<h2 id="experiments-pre-registered">Experiments (pre-registered)</h2>
+<p>For research questions, especially trading, the unit of work is an experiment whose criteria
+are fixed before any result exists. This is the mechanism that stops &quot;tune until the backtest
+looks good&quot;. Three commands:</p>
+<pre><code class="language-bash">uv run roundtable experiment preregister prereg.yaml -c project.yaml   # lock it: E1, hash, pinned commit
+uv run roundtable experiment run E1 -c project.yaml                     # execute the command, record the real output
+uv run roundtable experiment interpret E1 -c project.yaml               # read the numbers against the locked criteria
+</code></pre>
+<p><code>prereg.yaml</code> mirrors the hypothesis-gate one-pager:</p>
+<pre><code class="language-yaml">hypothesis: The slow-category NO slice has positive net edge after fees.
+expected_result: mean_edge &gt;= 0.01 per contract at n &gt;= 300
+method: run the study's own analyzer on the frozen settled cohort
+data: data/study.db, settled 2026-06-01..2026-09-15, never used for tuning
+success_criteria: [&quot;mean_edge &gt;= 0.01 with n &gt;= 300&quot;]
+failure_criteria: [&quot;ci_lower &lt;= -0.01 with n &gt;= 300&quot;]
+n_trials: 1                                  # configs searched; feeds multiple-testing corrections
+execution_model: taker at ask, Kalshi fee schedule 2026-07, no partial fills
+command: python scripts/analyze.py --json    # writes JSON to $ROUNDTABLE_METRICS or prints a JSON line
+repo: ~/code-projects/SomeTrader             # optional; pinned to its current commit at lock time
+</code></pre>
+<p>What each step guarantees:</p>
+<ul>
+<li><strong>preregister</strong> hashes the whole pre-registration and records the repo commit. Any later edit
+to the stored criteria makes <code>run</code> and <code>interpret</code> refuse with &quot;altered after locking&quot;.</li>
+<li><strong>run</strong> executes the command once, in a worktree at the pinned commit, with API keys stripped
+and a timeout. Metrics come from the JSON file named by <code>ROUNDTABLE_METRICS</code> or the last JSON
+line on stdout. An experiment with a recorded result cannot be run again; pre-register a new one.</li>
+<li><strong>interpret</strong> has one model read every success and failure criterion against the recorded
+metrics, citing the value that decides each. The decision rule is then applied by code, not by
+the model: any failure criterion met is KILL; else any success criterion met is PASS; else
+INCONCLUSIVE. A model that flinches from a KILL is overridden and the override is recorded. A
+second model reviews the reading; if it disagrees on the decision, the experiment is recorded
+INCONCLUSIVE with both positions and an open question for you.</li>
+</ul>
+<p><code>experiment list</code> and <code>experiment show E1</code> print the ledger. Roles: <code>interpreter</code> and
+<code>experiment_critic</code> if configured, else the synthesizer and critic seats.</p>
+<h2 id="trading-projects">Trading projects</h2>
+<p>Set <code>project.domain: trading</code>. Two things change:</p>
+<ul>
+<li>The proposer must state the execution model (fills, fees, spread, slippage, latency,
+capacity), the search budget (<code>n_trials</code>), the benchmark, and the in-sample/out-of-sample split.</li>
+<li>The critic must fill in a fifteen-item checklist on every proposal (look-ahead bias,
+survivorship bias, data leakage, overfitting, multiple-hypothesis testing, unrealistic fills,
+commissions and fees, spread, slippage, liquidity and capacity, queue position, execution
+latency, sample size, regime dependence, parameter sensitivity), each marked ok, concern, or
+not applicable with a reason. A critique missing any item fails validation and is repaired.</li>
+</ul>
+<p>A model saying a strategy works is never evidence; only an executed experiment is. A proposal
+that claims an edge without one gets NEEDS_EXPERIMENT, which points you at the commands above.</p>
+</main></div>
+<footer><div class="wrap"><span>Roundtable · MIT licensed · built by <a href="https://kevinbrunette.com">Kevin Brunette</a></span><span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="/docs/">Docs</a></span></div></footer>
+</body>
+</html>

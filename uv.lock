@@ -890,6 +890,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "markdown-it-py" },
     { name = "pytest" },
 ]
 
@@ -906,7 +907,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+dev = [
+    { name = "markdown-it-py", specifier = ">=3.0" },
+    { name = "pytest", specifier = ">=8" },
+]
 
 [[package]]
 name = "shellingham"

@@ -11,7 +11,8 @@ the decision rule is applied by code; trading projects get a mandatory critic ch
 orchestrator commits its diff, runs the tests, and a separate model validates each locked
 acceptance criterion against the real output. Nothing is merged without you.
 
-Documentation:
+Documentation (also at [roundtable.build/docs](https://roundtable.build/docs/)):
+- [Tutorial](docs/TUTORIAL.md): your first run in ten minutes, then your own repo and your first experiment
 - [User guide](docs/GUIDE.md): install, first run, what a run does, reading the report, working on your own repos
 - [Configuration reference](docs/CONFIG.md): every key in `project.yaml`
 - [Providers](docs/PROVIDERS.md): each backend's exact invocation, envelope, and gotchas

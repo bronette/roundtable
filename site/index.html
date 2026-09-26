@@ -185,6 +185,7 @@ footer a{color:var(--ink-2)}
       <a href="#seats">The seats</a>
       <a href="#rules">House rules</a>
       <a href="#start">Get started</a>
+      <a href="/docs/">Docs</a>
       <a class="gh" href="https://github.com/bronette/roundtable">GitHub</a>
     </nav>
   </div>
@@ -199,13 +200,14 @@ footer a{color:var(--ink-2)}
       <h1>Four AIs walk into a repo. <em>One of them is paid to disagree.</em></h1>
       <p class="lede">Roundtable seats Claude, Codex, Grok, Gemini and your local models at one table and makes them do what a good team does: propose, attack the proposal, revise, build, run the tests, and report the argument honestly. No voting. No group hug.</p>
       <div class="cta">
-        <a class="btn" href="#start">Run it in five minutes</a>
-        <a class="btn ghost" href="https://github.com/bronette/roundtable">Read the code</a>
+        <a class="btn" href="/docs/tutorial.html">Run it in ten minutes</a>
+        <a class="btn ghost" href="/docs/">Read the docs</a>
       </div>
       <div class="trust">
         <span>No API keys needed</span>
         <span>Every call logged to SQLite</span>
         <span>Nothing merges without you</span>
+        <span>Pre-registered experiments</span>
         <span>MIT</span>
       </div>
     </div>
@@ -372,8 +374,8 @@ footer a{color:var(--ink-2)}
   <div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">Get started</p>
-      <h2>Five minutes, zero API keys.</h2>
-      <p class="lede">If you already run <code>claude</code>, <code>codex</code> or <code>grok</code> from a terminal, you already have everything Roundtable needs. It drives those same CLIs with your existing logins.</p>
+      <h2>Ten minutes, zero API keys.</h2>
+      <p class="lede">If you already run <code>claude</code>, <code>codex</code>, <code>grok</code> or <code>agy</code> from a terminal, you already have everything Roundtable needs. It drives those same CLIs with your existing logins. The <a href="/docs/tutorial.html">tutorial</a> walks through a first run, your own repo, and your first pre-registered experiment.</p>
     </div>
     <div class="install-grid">
       <pre class="install"><span class="c"># get it</span>
@@ -391,7 +393,8 @@ uv run roundtable calls <span class="k">&lt;run_id&gt;</span> --full</pre>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="notice"><b>Point it at your own project</b><span>Set <code>project.repo</code> to any directory. Git repos get a worktree on a new branch. Set <code>test_command</code> to whatever proves the work.</span></div>
         <div class="notice"><b>Mix and match seats</b><span>Claude proposing, Grok critiquing, Codex building, a local qwen validating for free. Or all Claude. Or all local. One line per seat in <code>project.yaml</code>.</span></div>
-        <div class="notice"><b>Budget honestly</b><span>Each CLI call carries the tool's own system prompt, so a run is roughly six to nine calls and ten to twenty minutes, most of it the critic thinking. That is the price of a real review.</span></div>
+        <div class="notice"><b>Research without fooling yourself</b><span>For strategy questions, write the hypothesis and the kill criteria first. <code>roundtable experiment preregister</code> locks them by hash; <code>run</code> executes once at a pinned commit; <code>interpret</code> reads the numbers against the locked criteria, and the decision is applied by code.</span></div>
+        <div class="notice"><b>Budget honestly</b><span>Each CLI call carries the tool's own system prompt, so a run is roughly six to twelve calls and ten to thirty minutes, most of it the critic thinking. That is the price of a real review.</span></div>
       </div>
     </div>
   </div>
@@ -402,7 +405,7 @@ uv run roundtable calls <span class="k">&lt;run_id&gt;</span> --full</pre>
 <footer>
   <div class="wrap">
     <span>Roundtable · MIT licensed · built by <a href="https://kevinbrunette.com">Kevin Brunette</a></span>
-    <span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="https://github.com/bronette/roundtable/blob/main/docs/GUIDE.md">User guide</a> · <a href="https://github.com/bronette/roundtable/blob/main/docs/DESIGN.md">Design notes</a></span>
+    <span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="/docs/tutorial.html">Tutorial</a> · <a href="/docs/guide.html">User guide</a> · <a href="/docs/design.html">Design notes</a></span>
   </div>
 </footer>
 

@@ -20,7 +20,10 @@ dependencies = [
 roundtable = "roundtable.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "markdown-it-py>=3.0",
+    "pytest>=8",
+]
 
 [build-system]
 requires = ["hatchling"]

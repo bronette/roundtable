@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Providers · Roundtable</title>
+<meta name="description" content="Each backend&#x27;s exact invocation, envelope, and gotchas; how to add one.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23b8763b'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23a1622d'/%3E%3Ccircle cx='32' cy='6' r='5' fill='%23171c26'/%3E%3Ccircle cx='32' cy='58' r='5' fill='%23171c26'/%3E%3Ccircle cx='6' cy='32' r='5' fill='%23171c26'/%3E%3Ccircle cx='58' cy='32' r='5' fill='%23d24b3f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;--chalk:#f3f4f0;--paper:#fff;--ink:#171c26;--ink-2:#4a5160;--ink-3:#7b8290;--line:#d9dcd6;--oak:#b8763b;--oak-2:#8f5a2a;--felt:#2f6b4f;--brass:#c9a24d;--signal:#d24b3f;--code-bg:#1d2330;--code-ink:#e9ecf1;--inline:#e9eae4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}}
+:root[data-theme="dark"]{color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}
+*{box-sizing:border-box}body{margin:0;background:var(--chalk);color:var(--ink);font:400 16.5px/1.6 "IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--oak-2)}a:hover{color:var(--oak)}
+h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-variation-settings:"opsz" 96;letter-spacing:-.02em;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:800}h2{font-size:1.6rem;font-weight:800;margin-top:2.4em;padding-top:1em;border-top:1px solid var(--line)}h3{font-size:1.15rem;font-weight:600;margin-top:1.8em}h4{font-size:1rem;font-weight:600;margin-top:1.4em}
+h2+*,h3+*,h4+*{margin-top:.6em}
+p,ul,ol{margin:0 0 1em}li{margin:.25em 0}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--inline);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:.86rem;line-height:1.6;margin:0 0 1.2em}pre code{background:none;padding:0;font-size:inherit;color:inherit}
+table{border-collapse:collapse;width:100%;margin:0 0 1.4em;font-size:.93rem;display:block;overflow-x:auto}th,td{text-align:left;vertical-align:top;padding:.55em .7em;border-bottom:1px solid var(--line)}th{font-weight:600;color:var(--ink-2);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+blockquote{margin:0 0 1em;padding:.2em 1em;border-left:4px solid var(--brass);color:var(--ink-2)}
+hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--chalk) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.15rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:6px;flex-wrap:wrap}nav a{text-decoration:none;font-size:.92rem;font-weight:500;color:var(--ink-2);padding:.45em .7em;border-radius:8px}nav a:hover,nav a.on{background:var(--paper);color:var(--ink)}
+.wrap{max-width:1120px;margin-inline:auto;padding-inline:clamp(16px,4vw,40px)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(24px,4vw,56px);padding-block:36px 72px}
+aside{position:sticky;top:76px;align-self:start;font-size:.9rem}aside .eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:8px}
+aside a{display:block;color:var(--ink-2);text-decoration:none;padding:.3em 0}aside a.on{color:var(--ink);font-weight:600}aside .toc a{padding-left:0;font-size:.85rem;color:var(--ink-3)}aside .toc{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;max-height:60vh;overflow:auto}
+.layout>*{min-width:0}main{max-width:76ch;min-width:0}main .lede{font-size:1.1rem;color:var(--ink-2);margin:.6em 0 1.6em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin-top:24px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px}.card h3{margin:0}.card p{margin:0;color:var(--ink-2);font-size:.95rem}
+footer{border-top:1px solid var(--line);padding-block:28px;font-size:.88rem;color:var(--ink-3)}footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+@media (max-width:820px){.layout{grid-template-columns:1fr}aside{position:static}aside .toc{display:none}}
+@media (max-width:640px){nav a:not(.gh){display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#b8763b"/><circle cx="32" cy="32" r="14" fill="#a1622d"/><circle cx="32" cy="6" r="5" fill="currentColor"/><circle cx="32" cy="58" r="5" fill="currentColor"/><circle cx="6" cy="32" r="5" fill="currentColor"/><circle cx="58" cy="32" r="5" fill="#d24b3f"/></svg>Roundtable</a>
+  <nav aria-label="Site"><a href="/">Home</a><a href="/docs/" class="on">Docs</a><a class="gh" href="https://github.com/bronette/roundtable">GitHub</a></nav>
+</div></header>
+<div class="wrap layout"><aside><div class="eyebrow">Documentation</div><a href="/docs/tutorial.html">Tutorial</a><a href="/docs/guide.html">User guide</a><a href="/docs/config.html">Configuration</a><a href="/docs/providers.html" class="on">Providers</a><a href="/docs/design.html">Design notes</a><div class="toc"><a href="#cli-providers-subscription-logins" style="padding-left:0px">CLI providers (subscription logins)</a><a href="#claude-claude-code-2-1-x" style="padding-left:12px">claude (Claude Code 2.1.x)</a><a href="#codex-codex-cli-0-155-x" style="padding-left:12px">codex (codex-cli 0.155.x)</a><a href="#grok-grok-build-1-0-x" style="padding-left:12px">grok (Grok Build 1.0.x)</a><a href="#agy-google-antigravity-cli-1-2-x" style="padding-left:12px">agy (Google Antigravity CLI 1.2.x)</a><a href="#gemini-gemini-cli-0-61-x" style="padding-left:12px">gemini (Gemini CLI 0.61.x)</a><a href="#api-providers" style="padding-left:0px">API providers</a><a href="#pricing" style="padding-left:0px">Pricing</a><a href="#adding-a-provider" style="padding-left:0px">Adding a provider</a><a href="#the-recorded-provider" style="padding-left:0px">The recorded provider</a></div></aside><main><h1 id="providers">Providers</h1>
+<p>Every backend implements one method:</p>
+<pre><code class="language-python">def run(self, messages, *, schema=None, temperature=0.2, max_tokens=4096, timeout_s=180.0,
+        effort=None, workspace=None, max_turns=None) -&gt; Completion
+</code></pre>
+<p><code>messages</code> is a list of system/user/assistant turns. <code>schema</code> is a pydantic model; when given,
+the backend must return a JSON object and the orchestrator validates it (one repair round on
+failure). <code>workspace</code> switches CLI backends into agent mode inside that directory. The return
+value carries text, parsed JSON, token usage, model, latency, the provider's own cost estimate
+if any, and for CLIs the exact command line, all of which land in the <code>agent_calls</code> table.</p>
+<p>Adapters know nothing about roles, prompts, budgets, or the database.</p>
+<h2 id="cli-providers-subscription-logins">CLI providers (subscription logins)</h2>
+<p>Verified 2026-09-25 on macOS with the versions shown. These use whatever login the CLI already
+has; <code>*_API_KEY</code> variables are removed from the child environment so the CLI cannot silently
+bill the API instead. Answer-mode calls run in an empty temp directory so no <code>CLAUDE.md</code> or
+<code>AGENTS.md</code> leaks in; agent-mode calls run in the worktree, where those files are wanted.</p>
+<h3 id="claude-claude-code-2-1-x">claude (Claude Code 2.1.x)</h3>
+<p>Answer mode:</p>
+<pre><code>claude -p &quot;&lt;prompt&gt;&quot; --output-format json --json-schema '&lt;schema&gt;' --tools &quot;&quot; --max-turns 1 \
+       --no-session-persistence --strict-mcp-config [--system-prompt &quot;&lt;system&gt;&quot;] [--model &lt;m&gt;]
+</code></pre>
+<p>Agent mode replaces <code>--tools &quot;&quot; --max-turns 1</code> with
+<code>--max-turns &lt;n&gt; --permission-mode acceptEdits --allowedTools Read,Edit,Write,MultiEdit,Glob,Grep,LS,Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(uv run:*),Bash(ls:*),Bash(cat:*)</code>.</p>
+<p>Envelope fields used: <code>structured_output</code>, <code>result</code>, <code>usage.{input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens}</code>, <code>total_cost_usd</code> (client-side estimate),
+<code>modelUsage</code> (model name), <code>session_id</code>, <code>is_error</code>, <code>subtype</code>.</p>
+<p>Notes: <code>--system-prompt</code> replaces the CLI's default (~10k tokens). The claude.ai login is used
+when no API key is present; that is documented behaviour. Anthropic paused (June 2026) a plan
+to bill programmatic use separately; if it returns, the <code>billing</code> column already records which
+calls were subscription calls.</p>
+<h3 id="codex-codex-cli-0-155-x">codex (codex-cli 0.155.x)</h3>
+<p>Answer mode:</p>
+<pre><code>codex exec --json --ephemeral --skip-git-repo-check -C &lt;tmp&gt; -s read-only \
+      --output-schema &lt;tmp&gt;/schema.json -o &lt;tmp&gt;/last.txt [-m &lt;m&gt;] &quot;&lt;prompt&gt;&quot;    &lt; /dev/null
+</code></pre>
+<p>Agent mode: <code>-C &lt;worktree&gt; -s workspace-write</code> (macOS Seatbelt sandbox; writes only
+under the worktree).</p>
+<p>Events used (NDJSON): <code>thread.started</code>, <code>item.completed</code> with <code>agent_message</code>,
+<code>turn.completed.usage</code>, <code>error</code>, <code>turn.failed</code>. The final message is read from the <code>-o</code> file.</p>
+<p>Gotchas: strict schema mode requires <code>additionalProperties: false</code> and every property in
+<code>required</code> on every object, and rejects <code>default</code>; the adapter rewrites pydantic schemas
+accordingly. stdin must be redirected or the CLI waits on it. There is no system-prompt flag;
+the system text is prepended to the user prompt. Events never name the model; the adapter reads
+<code>model = </code> from <code>~/.codex/config.toml</code> when set. <code>effort</code> maps to <code>-c model_reasoning_effort=</code>.</p>
+<h3 id="grok-grok-build-1-0-x">grok (Grok Build 1.0.x)</h3>
+<p>Answer mode:</p>
+<pre><code>grok --single &quot;&lt;prompt&gt;&quot; --output-format json --json-schema '&lt;schema&gt;' --max-turns &lt;n&gt; \
+     --disable-web-search --cwd &lt;tmp&gt; [--system-prompt-override &quot;&lt;system&gt;&quot;] [-m &lt;m&gt;] [--reasoning-effort &lt;e&gt;]
+</code></pre>
+<p>Agent mode: <code>--cwd &lt;worktree&gt; --always-approve --max-turns &lt;n&gt;</code>. Grok has no sandbox.</p>
+<p>Envelope fields used: <code>structuredOutput</code>, <code>text</code>, <code>stopReason</code>, <code>usage.{input_tokens, output_tokens, cache_read_input_tokens, reasoning_tokens}</code>, <code>total_cost_usd</code>, <code>modelUsage</code>,
+<code>requestId</code>, <code>structuredOutputError</code>.</p>
+<p>Gotchas: <code>-p</code> is a top-level alias of <code>--single</code>, not a subcommand of <code>grok agent</code>. With
+<code>--max-turns 1</code> on long prompts the model returns empty text and no structured output; the
+provider default is 3 turns. When Grok exits 1 with <code>structuredOutputError</code>, the adapter still
+returns the text so the audit log keeps it and the repair round runs. On long prompts Grok can
+spend 10k+ reasoning tokens and then report <code>stopReason: cancelled</code> with empty text, at any
+<code>--reasoning-effort</code>; configure a <code>fallback</code> provider for seats that use it. Grok is the
+slowest backend as a critic (2 to 4 minutes, 10k to 15k output tokens) and the most thorough.</p>
+<h3 id="agy-google-antigravity-cli-1-2-x">agy (Google Antigravity CLI 1.2.x)</h3>
+<p>Google's replacement for the Gemini CLI for individuals. Uses the Google login (Google AI Pro
+or Ultra); no key. <code>agy models</code> lists Gemini 3.x flash and pro at fixed effort levels, plus
+Claude and GPT-OSS models routed through Google.</p>
+<p>Answer mode:</p>
+<pre><code>agy --print &quot;&lt;system + prompt&gt;&quot; --output-format json --json-schema '&lt;schema&gt;' --mode plan \
+    --print-timeout &lt;n&gt;s [--model &lt;m&gt;] [--effort low|medium|high|max]
+</code></pre>
+<p>Agent mode: <code>--dangerously-skip-permissions --sandbox</code> with cwd set to the worktree (agy's
+sandbox applies terminal restrictions).</p>
+<p>Envelope fields used: <code>structured_output</code>, <code>response</code>, <code>status</code>, <code>usage.{input_tokens, output_tokens, thinking_tokens, cache_read_tokens}</code>, <code>conversation_id</code>, <code>denied_actions</code>.</p>
+<p>Gotchas: no system-prompt flag, so the system text is prepended to the prompt. In plan mode a
+model that decides to run a command or read a file is auto-denied headlessly and returns an
+empty response; the adapter prepends a &quot;tool use is disabled&quot; notice in answer mode, which was
+enough in testing (the general &quot;do not read or write files&quot; line alone was not). Verified
+2026-09-25: answer mode 16 s on gemini-3.8-flash-medium; agent mode wrote and tested two files
+in a worktree in 51 s. The baseline system prompt is very large:
+34k input tokens with a low-effort flash model and 75k with the default model on a trivial call,
+so budget by calls. Settings live in <code>~/.gemini/antigravity-cli/settings.json</code>.</p>
+<h3 id="gemini-gemini-cli-0-61-x">gemini (Gemini CLI 0.61.x)</h3>
+<p>The Gemini CLI refuses the individual Google login (<code>IneligibleTierError</code>, &quot;migrate to
+Antigravity&quot;), verified on 0.47 and 0.61. It works with an API key instead: create one at
+https://aistudio.google.com/apikey (free tier available) and <code>export GEMINI_API_KEY=...</code>. The
+adapter keeps that one variable in the child environment and strips the other vendors' keys.</p>
+<p>Answer mode:</p>
+<pre><code>gemini -p &quot;&lt;system + schema + prompt&gt;&quot; -o json --approval-mode plan -m &lt;model&gt;
+    GEMINI_CLI_TRUST_WORKSPACE=true  GEMINI_CLI_HOME=&lt;per-call temp dir&gt;
+</code></pre>
+<p>The per-call home holds a <code>.gemini/settings.json</code> selecting <code>gemini-api-key</code> auth. This is
+needed because <code>~/.gemini/settings.json</code> typically still selects the retired personal login and
+the CLI ignores <code>GEMINI_DEFAULT_AUTH_TYPE</code> once a type is saved. Verified 2026-09-25 on 0.61:
+a trivial call answered in 2.9 s on <code>gemini-3.8-flash</code> (the <code>gemini-flash-latest</code> alias) with a
+7.8k-token baseline system prompt.
+Agent mode: <code>--approval-mode yolo</code> with cwd set to the worktree. There is no sandbox flag in
+headless mode beyond the worktree boundary.</p>
+<p>The CLI has no schema or system-prompt flags; both ride in the prompt and the orchestrator
+parses and validates the reply with its usual repair round. Envelope: <code>response</code> (text) and
+<code>stats.models.&lt;model&gt;.tokens.{prompt, candidates, cached, thoughts}</code>. The same key also drives
+the <code>gemini</code> API provider, which does support native JSON-schema output and is the better
+choice for answer-mode seats; use the CLI for the engineer seat when you want Gemini editing
+files itself.</p>
+<h2 id="api-providers">API providers</h2>
+<table>
+<thead>
+<tr>
+<th>sdk</th>
+<th>package</th>
+<th>structured output</th>
+<th>usage fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>anthropic</code></td>
+<td><code>anthropic</code></td>
+<td>one forced tool call whose <code>input_schema</code> is the schema</td>
+<td><code>input_tokens</code>, <code>output_tokens</code>, cache fields</td>
+</tr>
+<tr>
+<td><code>openai_compat</code></td>
+<td><code>openai</code></td>
+<td><code>response_format: json_schema, strict: true</code>; xAI via <code>base_url</code></td>
+<td><code>prompt_tokens</code>, <code>completion_tokens</code>, cached</td>
+</tr>
+<tr>
+<td><code>gemini</code></td>
+<td><code>google-genai</code></td>
+<td><code>response_mime_type: application/json</code> + <code>response_json_schema</code></td>
+<td><code>usage_metadata</code></td>
+</tr>
+</tbody>
+</table>
+<p>Gemini API notes: the default model is the <code>gemini-flash-latest</code> alias because concrete names
+retire (<code>gemini-2.5-flash</code> now returns 404 for new keys). On the free tier the pro models return
+429 quota errors (surfaced as <code>UsageLimitError</code>) and the flash models occasionally return
+503 &quot;high demand&quot; (a <code>ProviderError</code>); <code>gemini-flash-lite-latest</code> answered in under a second
+when the others were busy. Give Gemini seats a <code>fallback</code> or use the lite model for cheap roles.
+| <code>ollama</code> | <code>ollama</code> | <code>format=&lt;schema&gt;</code> on <code>chat()</code> | <code>prompt_eval_count</code>, <code>eval_count</code> |</p>
+<p>API providers ignore <code>workspace</code>; an engineer on an API provider runs in answer mode. Do not
+pass <code>think=False</code> to qwen3 on Ollama: its chain of thought leaks into the JSON fields.</p>
+<h2 id="pricing">Pricing</h2>
+<p><code>pricing.yaml</code> maps model names to USD per million tokens (<code>input</code>, <code>output</code>, optional
+<code>cached_input</code>). Lookup is exact, then longest prefix. Unknown models get <code>cost_usd = NULL</code> and
+the run's total shows &quot;partly unknown&quot;. The vendor-reported estimate from CLI envelopes is
+stored separately as <code>reported_cost_usd</code>.</p>
+<h2 id="adding-a-provider">Adding a provider</h2>
+<ol>
+<li>Add a class with the <code>run</code> signature above in <code>roundtable/providers/</code> (or <code>providers/cli/</code>).</li>
+<li>Return a <code>Completion</code>; set <code>parsed</code> to the JSON object if the backend produced one, else
+leave it <code>None</code> and the orchestrator will try to parse <code>text</code> and run the repair round.</li>
+<li>Register it in <code>roundtable/providers/__init__.py</code> and add the <code>sdk</code> or <code>cli</code> literal to
+<code>ProviderCfg</code> in <code>config.py</code>.</li>
+<li>Add an envelope test in <code>tests/test_cli_adapters.py</code> using a recorded response.</li>
+</ol>
+<p>No workflow code changes.</p>
+<h2 id="the-recorded-provider">The recorded provider</h2>
+<p><code>RecordedProvider</code> replays canned outputs in order and asserts prompt guards
+(<code>expects_prompt_contains</code>, <code>forbids_prompt_contains</code>) on every call. The pipeline tests use it
+to make the anti-sycophancy rules executable: the critic recording forbids the proposer's
+provider name in its prompt; the validator recording forbids the proposal's approach text. A
+prompt-construction regression fails the offline suite instead of quietly biasing a live run.</p>
+</main></div>
+<footer><div class="wrap"><span>Roundtable · MIT licensed · built by <a href="https://kevinbrunette.com">Kevin Brunette</a></span><span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="/docs/">Docs</a></span></div></footer>
+</body>
+</html>

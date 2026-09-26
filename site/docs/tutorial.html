@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tutorial · Roundtable</title>
+<meta name="description" content="Your first run in ten minutes: install, sign in, run the example, read the report, then your own repo and your first experiment.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23b8763b'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23a1622d'/%3E%3Ccircle cx='32' cy='6' r='5' fill='%23171c26'/%3E%3Ccircle cx='32' cy='58' r='5' fill='%23171c26'/%3E%3Ccircle cx='6' cy='32' r='5' fill='%23171c26'/%3E%3Ccircle cx='58' cy='32' r='5' fill='%23d24b3f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;--chalk:#f3f4f0;--paper:#fff;--ink:#171c26;--ink-2:#4a5160;--ink-3:#7b8290;--line:#d9dcd6;--oak:#b8763b;--oak-2:#8f5a2a;--felt:#2f6b4f;--brass:#c9a24d;--signal:#d24b3f;--code-bg:#1d2330;--code-ink:#e9ecf1;--inline:#e9eae4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}}
+:root[data-theme="dark"]{color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}
+*{box-sizing:border-box}body{margin:0;background:var(--chalk);color:var(--ink);font:400 16.5px/1.6 "IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--oak-2)}a:hover{color:var(--oak)}
+h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-variation-settings:"opsz" 96;letter-spacing:-.02em;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:800}h2{font-size:1.6rem;font-weight:800;margin-top:2.4em;padding-top:1em;border-top:1px solid var(--line)}h3{font-size:1.15rem;font-weight:600;margin-top:1.8em}h4{font-size:1rem;font-weight:600;margin-top:1.4em}
+h2+*,h3+*,h4+*{margin-top:.6em}
+p,ul,ol{margin:0 0 1em}li{margin:.25em 0}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--inline);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:.86rem;line-height:1.6;margin:0 0 1.2em}pre code{background:none;padding:0;font-size:inherit;color:inherit}
+table{border-collapse:collapse;width:100%;margin:0 0 1.4em;font-size:.93rem;display:block;overflow-x:auto}th,td{text-align:left;vertical-align:top;padding:.55em .7em;border-bottom:1px solid var(--line)}th{font-weight:600;color:var(--ink-2);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+blockquote{margin:0 0 1em;padding:.2em 1em;border-left:4px solid var(--brass);color:var(--ink-2)}
+hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--chalk) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.15rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:6px;flex-wrap:wrap}nav a{text-decoration:none;font-size:.92rem;font-weight:500;color:var(--ink-2);padding:.45em .7em;border-radius:8px}nav a:hover,nav a.on{background:var(--paper);color:var(--ink)}
+.wrap{max-width:1120px;margin-inline:auto;padding-inline:clamp(16px,4vw,40px)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(24px,4vw,56px);padding-block:36px 72px}
+aside{position:sticky;top:76px;align-self:start;font-size:.9rem}aside .eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:8px}
+aside a{display:block;color:var(--ink-2);text-decoration:none;padding:.3em 0}aside a.on{color:var(--ink);font-weight:600}aside .toc a{padding-left:0;font-size:.85rem;color:var(--ink-3)}aside .toc{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;max-height:60vh;overflow:auto}
+.layout>*{min-width:0}main{max-width:76ch;min-width:0}main .lede{font-size:1.1rem;color:var(--ink-2);margin:.6em 0 1.6em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin-top:24px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px}.card h3{margin:0}.card p{margin:0;color:var(--ink-2);font-size:.95rem}
+footer{border-top:1px solid var(--line);padding-block:28px;font-size:.88rem;color:var(--ink-3)}footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+@media (max-width:820px){.layout{grid-template-columns:1fr}aside{position:static}aside .toc{display:none}}
+@media (max-width:640px){nav a:not(.gh){display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#b8763b"/><circle cx="32" cy="32" r="14" fill="#a1622d"/><circle cx="32" cy="6" r="5" fill="currentColor"/><circle cx="32" cy="58" r="5" fill="currentColor"/><circle cx="6" cy="32" r="5" fill="currentColor"/><circle cx="58" cy="32" r="5" fill="#d24b3f"/></svg>Roundtable</a>
+  <nav aria-label="Site"><a href="/">Home</a><a href="/docs/" class="on">Docs</a><a class="gh" href="https://github.com/bronette/roundtable">GitHub</a></nav>
+</div></header>
+<div class="wrap layout"><aside><div class="eyebrow">Documentation</div><a href="/docs/tutorial.html" class="on">Tutorial</a><a href="/docs/guide.html">User guide</a><a href="/docs/config.html">Configuration</a><a href="/docs/providers.html">Providers</a><a href="/docs/design.html">Design notes</a><div class="toc"><a href="#1-install" style="padding-left:0px">1. Install</a><a href="#2-sign-in-to-the-model-clis-you-have" style="padding-left:0px">2. Sign in to the model CLIs you have</a><a href="#3-check-what-can-run" style="padding-left:0px">3. Check what can run</a><a href="#4-run-the-example" style="padding-left:0px">4. Run the example</a><a href="#5-read-the-report" style="padding-left:0px">5. Read the report</a><a href="#6-point-it-at-your-own-project" style="padding-left:0px">6. Point it at your own project</a><a href="#7-if-something-stops" style="padding-left:0px">7. If something stops</a><a href="#8-research-questions-pre-register-then-run" style="padding-left:0px">8. Research questions: pre-register, then run</a><a href="#where-to-go-next" style="padding-left:0px">Where to go next</a></div></aside><main><h1 id="tutorial-your-first-run-in-ten-minutes">Tutorial: your first run in ten minutes</h1>
+<p>This walks through one complete run on the bundled example, then points Roundtable at a
+project of your own. Every command is copy-pasteable. Nothing here needs an API key.</p>
+<h2 id="1-install">1. Install</h2>
+<pre><code class="language-bash">git clone https://github.com/bronette/roundtable
+cd roundtable
+uv sync
+</code></pre>
+<p>You need Python 3.12+ and <a href="https://docs.astral.sh/uv/">uv</a>. <code>uv sync</code> creates the virtual
+environment and installs everything.</p>
+<h2 id="2-sign-in-to-the-model-clis-you-have">2. Sign in to the model CLIs you have</h2>
+<p>Roundtable drives the same command-line tools you already use, with the logins they already
+hold. Sign in once, interactively, to whichever of these you have:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Sign in with</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Claude Code</td>
+<td>claude.ai subscription</td>
+<td><code>claude login</code></td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>ChatGPT</td>
+<td><code>codex login</code></td>
+</tr>
+<tr>
+<td>Grok</td>
+<td>xAI account</td>
+<td><code>grok login</code></td>
+</tr>
+<tr>
+<td>Antigravity</td>
+<td>Google AI Pro</td>
+<td><code>agy</code> (then sign in when prompted)</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>nothing</td>
+<td><code>ollama serve</code> and <code>ollama pull qwen3:30b-a3b</code></td>
+</tr>
+</tbody>
+</table>
+<p>You do not need all of them. One is enough to start; the example config below can be pointed
+at whatever you have.</p>
+<h2 id="3-check-what-can-run">3. Check what can run</h2>
+<pre><code class="language-bash">uv run roundtable providers -c examples/project.yaml
+</code></pre>
+<p>This prints every provider in the config and whether it is usable right now. A red entry
+names what is missing (a CLI not on your PATH, a key not set). Every seat in <code>examples/project.yaml</code>
+must map to a green provider before a run will start.</p>
+<p>If you only have Claude, edit the <code>agents:</code> block so every seat says <code>provider: claude_cli</code>.
+Roles are configuration; any seat can use any provider.</p>
+<h2 id="4-run-the-example">4. Run the example</h2>
+<pre><code class="language-bash">uv run roundtable run examples/project.yaml
+</code></pre>
+<p>The example objective is small: a max-drawdown function with tests. You will see each stage as
+it happens:</p>
+<pre><code>[PROPOSE   ] proposer → claude-...  P1: Add max_drawdown(...) ...
+[CRITIQUE  ] critic → grok-...      C1 on P1 → REVISE  (3 problems, 1 blockers)
+[REVISE    ] reviser → claude-...   P2 revises P1: 3 fixed, 0 rejected, 0 deferred
+[CRITIQUE  ] critic → grok-...      C2 on P2 → ACCEPT
+[CRITIQUE  ] acceptance criteria locked (sha256:...)
+[IMPLEMENT ] engineer → claude-...  I1: 2 file(s) changed, commit ... on roundtable/run_...
+[TEST      ] T1: `python -m pytest -q` exit=0 passed=20 failed=0
+[REVIEW    ] validator → qwen3...   C3 on I1 → ACCEPT  (7/7 criteria satisfied)
+[SYNTHESIZE] synthesizer → claude-... verdict ACCEPT
+</code></pre>
+<p>A full run takes ten to twenty minutes. Most of that is the critic thinking. At the end you
+get a path to <code>report.md</code>.</p>
+<h2 id="5-read-the-report">5. Read the report</h2>
+<p>Open <code>runs/dd-demo/&lt;run_id&gt;/report.md</code>. Read it top to bottom once:</p>
+<ol>
+<li><strong>Status and verdict.</strong> <code>implemented</code> with <code>ACCEPT</code> is the good case. Anything else says
+why in one line.</li>
+<li><strong>What was built and the test results.</strong> Written from the records, not from a model's
+opinion of its own work.</li>
+<li><strong>Disagreements.</strong> Every criticism the proposer rejected or deferred, with both sides. This
+section is the reason to use several models instead of one.</li>
+<li><strong>Remaining risks and the recommended next experiment.</strong></li>
+<li><strong>Acceptance criteria</strong>, locked before the code existed, and the <strong>validator review</strong> that
+checked each one against real output.</li>
+</ol>
+<p>Then look at the code:</p>
+<pre><code class="language-bash">cd runs/dd-demo/&lt;run_id&gt;/workspace
+git log --oneline          # the base commit and the engineer's commit
+cat dd.py test_dd.py
+</code></pre>
+<p>To see exactly what any model was told and what it replied:</p>
+<pre><code class="language-bash">uv run roundtable calls &lt;run_id&gt; -c examples/project.yaml
+uv run roundtable call-show &lt;call_id&gt; -c examples/project.yaml
+</code></pre>
+<h2 id="6-point-it-at-your-own-project">6. Point it at your own project</h2>
+<p>Copy the example config and change the project block:</p>
+<pre><code class="language-yaml">project:
+  name: my-project
+  repo: ~/code/my-project              # any git repo; your checkout is never touched
+  python: ~/code/my-project/.venv/bin/python
+  test_command: python -m pytest -q
+  objective: &gt;
+    Add input validation to the CSV importer so malformed rows are reported
+    with line numbers instead of crashing the import.
+  requirements:
+    - &quot;Malformed rows are collected and reported; the import continues&quot;
+    - &quot;Existing tests pass unchanged&quot;
+    - &quot;New tests cover a malformed row, an empty file, and a header-only file&quot;
+</code></pre>
+<p>Three things make a good first objective: your test suite runs in under a minute, the change is
+small and you already want it, and you would not mind throwing the branch away.</p>
+<pre><code class="language-bash">uv run roundtable run my-project.yaml
+</code></pre>
+<p>The engineer works in a git worktree on a new branch <code>roundtable/&lt;run_id&gt;</code>. When the report
+says the tests passed and the validator accepted:</p>
+<pre><code class="language-bash">cd ~/code/my-project
+git diff main...roundtable/&lt;run_id&gt;
+git merge roundtable/&lt;run_id&gt;              # only if you like it
+git worktree remove &lt;path from the report&gt;
+</code></pre>
+<h2 id="7-if-something-stops">7. If something stops</h2>
+<p>Runs halt on budgets, provider outages, or invalid output. The report is still written and says
+why. Fix the cause and continue from where it stopped, without paying again for what completed:</p>
+<pre><code class="language-bash">uv run roundtable resume &lt;run_id&gt; -c my-project.yaml
+uv run roundtable resume &lt;run_id&gt; -c my-project.yaml --max-calls 24    # if the halt was a budget
+</code></pre>
+<h2 id="8-research-questions-pre-register-then-run">8. Research questions: pre-register, then run</h2>
+<p>For anything where the temptation is to keep tweaking until the numbers look good, use an
+experiment. Write the criteria first:</p>
+<pre><code class="language-yaml"># prereg.yaml
+hypothesis: The signal has positive expectancy after costs on the held-out window.
+expected_result: mean_return_bps &gt;= 3 with n_trades &gt;= 200
+method: run scripts/backtest.py --window holdout --costs realistic
+data: data/holdout.parquet, 2025-01..2025-06, never used for tuning
+success_criteria: [&quot;n_trades &gt;= 200 AND mean_return_bps &gt;= 3 AND ci_lower_bps &gt; 0&quot;]
+failure_criteria: [&quot;n_trades &gt;= 200 AND ci_lower_bps &lt;= 0&quot;]
+n_trials: 1
+command: python scripts/backtest.py --window holdout --costs realistic --json
+repo: ~/code/my-strategy
+</code></pre>
+<pre><code class="language-bash">uv run roundtable experiment preregister prereg.yaml -c my-project.yaml   # locks it: E1
+uv run roundtable experiment run E1 -c my-project.yaml                     # runs it once
+uv run roundtable experiment interpret E1 -c my-project.yaml               # reads it: PASS / KILL / INCONCLUSIVE
+</code></pre>
+<p>Your command must print its metrics as JSON, or write them to the file named by the
+<code>ROUNDTABLE_METRICS</code> environment variable. The criteria cannot be edited after locking, the
+experiment cannot be run twice, and the decision is applied by code from the model's reading of
+each criterion, with a second model checking that reading.</p>
+<h2 id="where-to-go-next">Where to go next</h2>
+<ul>
+<li><a href="/docs/guide.html">User guide</a> for how each stage works, what &quot;solved&quot; means, and troubleshooting.</li>
+<li><a href="/docs/config.html">Configuration</a> for every key in the project file.</li>
+<li><a href="/docs/providers.html">Providers</a> for each backend's details and how to add one.</li>
+</ul>
+</main></div>
+<footer><div class="wrap"><span>Roundtable · MIT licensed · built by <a href="https://kevinbrunette.com">Kevin Brunette</a></span><span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="/docs/">Docs</a></span></div></footer>
+</body>
+</html>

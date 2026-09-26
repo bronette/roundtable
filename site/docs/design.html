@@ -1,0 +1,1256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Design notes · Roundtable</title>
+<meta name="description" content="Architecture, schemas, state machine, failure modes, and the milestone log.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23b8763b'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%23a1622d'/%3E%3Ccircle cx='32' cy='6' r='5' fill='%23171c26'/%3E%3Ccircle cx='32' cy='58' r='5' fill='%23171c26'/%3E%3Ccircle cx='6' cy='32' r='5' fill='%23171c26'/%3E%3Ccircle cx='58' cy='32' r='5' fill='%23d24b3f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;--chalk:#f3f4f0;--paper:#fff;--ink:#171c26;--ink-2:#4a5160;--ink-3:#7b8290;--line:#d9dcd6;--oak:#b8763b;--oak-2:#8f5a2a;--felt:#2f6b4f;--brass:#c9a24d;--signal:#d24b3f;--code-bg:#1d2330;--code-ink:#e9ecf1;--inline:#e9eae4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}}
+:root[data-theme="dark"]{color-scheme:dark;--chalk:#12161f;--paper:#1a202c;--ink:#eef0f3;--ink-2:#b4bac6;--ink-3:#7f8796;--line:#2c3442;--oak:#c98a4d;--oak-2:#e0aa72;--felt:#5fb08a;--brass:#d8b45e;--signal:#ee6a5e;--code-bg:#0d1017;--code-ink:#e9ecf1;--inline:#242b38}
+*{box-sizing:border-box}body{margin:0;background:var(--chalk);color:var(--ink);font:400 16.5px/1.6 "IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--oak-2)}a:hover{color:var(--oak)}
+h1,h2,h3,h4{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;font-variation-settings:"opsz" 96;letter-spacing:-.02em;line-height:1.08;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,5vw,3rem);font-weight:800}h2{font-size:1.6rem;font-weight:800;margin-top:2.4em;padding-top:1em;border-top:1px solid var(--line)}h3{font-size:1.15rem;font-weight:600;margin-top:1.8em}h4{font-size:1rem;font-weight:600;margin-top:1.4em}
+h2+*,h3+*,h4+*{margin-top:.6em}
+p,ul,ol{margin:0 0 1em}li{margin:.25em 0}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--inline);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:.86rem;line-height:1.6;margin:0 0 1.2em}pre code{background:none;padding:0;font-size:inherit;color:inherit}
+table{border-collapse:collapse;width:100%;margin:0 0 1.4em;font-size:.93rem;display:block;overflow-x:auto}th,td{text-align:left;vertical-align:top;padding:.55em .7em;border-bottom:1px solid var(--line)}th{font-weight:600;color:var(--ink-2);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+blockquote{margin:0 0 1em;padding:.2em 1em;border-left:4px solid var(--brass);color:var(--ink-2)}
+hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--chalk) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:1.15rem;text-decoration:none;color:var(--ink)}
+nav{display:flex;gap:6px;flex-wrap:wrap}nav a{text-decoration:none;font-size:.92rem;font-weight:500;color:var(--ink-2);padding:.45em .7em;border-radius:8px}nav a:hover,nav a.on{background:var(--paper);color:var(--ink)}
+.wrap{max-width:1120px;margin-inline:auto;padding-inline:clamp(16px,4vw,40px)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(24px,4vw,56px);padding-block:36px 72px}
+aside{position:sticky;top:76px;align-self:start;font-size:.9rem}aside .eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:8px}
+aside a{display:block;color:var(--ink-2);text-decoration:none;padding:.3em 0}aside a.on{color:var(--ink);font-weight:600}aside .toc a{padding-left:0;font-size:.85rem;color:var(--ink-3)}aside .toc{margin-top:18px;border-top:1px solid var(--line);padding-top:12px;max-height:60vh;overflow:auto}
+.layout>*{min-width:0}main{max-width:76ch;min-width:0}main .lede{font-size:1.1rem;color:var(--ink-2);margin:.6em 0 1.6em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin-top:24px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px}.card h3{margin:0}.card p{margin:0;color:var(--ink-2);font-size:.95rem}
+footer{border-top:1px solid var(--line);padding-block:28px;font-size:.88rem;color:var(--ink-3)}footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+@media (max-width:820px){.layout{grid-template-columns:1fr}aside{position:static}aside .toc{display:none}}
+@media (max-width:640px){nav a:not(.gh){display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#b8763b"/><circle cx="32" cy="32" r="14" fill="#a1622d"/><circle cx="32" cy="6" r="5" fill="currentColor"/><circle cx="32" cy="58" r="5" fill="currentColor"/><circle cx="6" cy="32" r="5" fill="currentColor"/><circle cx="58" cy="32" r="5" fill="#d24b3f"/></svg>Roundtable</a>
+  <nav aria-label="Site"><a href="/">Home</a><a href="/docs/" class="on">Docs</a><a class="gh" href="https://github.com/bronette/roundtable">GitHub</a></nav>
+</div></header>
+<div class="wrap layout"><aside><div class="eyebrow">Documentation</div><a href="/docs/tutorial.html">Tutorial</a><a href="/docs/guide.html">User guide</a><a href="/docs/config.html">Configuration</a><a href="/docs/providers.html">Providers</a><a href="/docs/design.html" class="on">Design notes</a><div class="toc"><a href="#1-analysis-of-the-proposed-architecture" style="padding-left:0px">1. Analysis of the proposed architecture</a><a href="#2-unnecessary-complexity-cut-or-defer" style="padding-left:0px">2. Unnecessary complexity (cut or defer)</a><a href="#3-smallest-viable-architecture" style="padding-left:0px">3. Smallest viable architecture</a><a href="#4-directory-structure" style="padding-left:0px">4. Directory structure</a><a href="#5-provider-interface" style="padding-left:0px">5. Provider interface</a><a href="#6-agent-and-message-schemas" style="padding-left:0px">6. Agent and message schemas</a><a href="#7-sqlite-schema" style="padding-left:0px">7. SQLite schema</a><a href="#8-orchestration-state-machine" style="padding-left:0px">8. Orchestration state machine</a><a href="#9-one-complete-example-execution" style="padding-left:0px">9. One complete example execution</a><a href="#10-failure-modes-and-security-concerns" style="padding-left:0px">10. Failure modes and security concerns</a><a href="#implementation-plan" style="padding-left:0px">Implementation plan</a><a href="#addendum-patterns-to-copy-from-mttr-correlator-found-via-oracle-after-the-first-draft" style="padding-left:0px">Addendum: patterns to copy from `mttr-correlator` (found via Oracle after the first draft)</a><a href="#addendum-2-subscription-backed-cli-providers-verified-2026-09-25" style="padding-left:0px">Addendum 2: subscription-backed CLI providers (verified 2026-09-25)</a><a href="#design-change-two-provider-kinds-one-interface" style="padding-left:12px">Design change: two provider kinds, one interface</a><a href="#design-change-the-engineer-runs-as-a-real-agent-in-the-worktree" style="padding-left:12px">Design change: the engineer runs as a real agent in the worktree</a><a href="#milestone-impact" style="padding-left:12px">Milestone impact</a><a href="#policy-note-on-subscription-use-from-the-claude-code-docs-checked-2026-09-25" style="padding-left:12px">Policy note on subscription use (from the Claude Code docs, checked 2026-09-25)</a><a href="#status-log" style="padding-left:0px">Status log</a><a href="#2026-09-25-m0-and-m1-shipped" style="padding-left:12px">2026-09-25 — M0 and M1 shipped</a><a href="#2026-09-25-m2-shipped" style="padding-left:12px">2026-09-25 — M2 shipped</a><a href="#2026-09-25-m3-shipped" style="padding-left:12px">2026-09-25 — M3 shipped</a><a href="#2026-09-26-real-repo-trial-and-m5" style="padding-left:12px">2026-09-26 — real-repo trial and M5</a></div></aside><main><h1 id="roundtable-design-pre-implementation">Roundtable — design (pre-implementation)</h1>
+<p>Status: DRAFT, awaiting approval. Nothing is implemented yet.
+Date: 2026-09-25</p>
+<p>Roundtable is a Python orchestrator that runs several LLM providers as a team of
+specialists (propose → critique → revise → implement → test → review → synthesize),
+with every call logged to SQLite and structured JSON between agents.</p>
+<p><strong>Scope.</strong> Roundtable is a general-purpose, standalone tool. It is pointed at any
+directory or git repository (yours, a fresh one, or an unrelated open-source
+project) and any objective. It has no dependency on Oracle, on <code>~/code-projects</code>,
+or on any existing project; Oracle was used only as a lookup while writing this
+document. Supported providers are Anthropic (Claude), OpenAI (GPT/Codex models),
+Google (Gemini), xAI (Grok), and Ollama (local models). Adding a provider means
+adding one adapter file; no workflow code changes.</p>
+<hr />
+<h2 id="1-analysis-of-the-proposed-architecture">1. Analysis of the proposed architecture</h2>
+<p>What the spec gets right, and what I would keep unchanged:</p>
+<ul>
+<li><strong>Hub-and-spoke through the orchestrator.</strong> Agents never talk to each other; the
+orchestrator builds each agent's context from shared state. This is the single
+most important decision and everything below assumes it.</li>
+<li><strong>Structured outputs validated by schema.</strong> Cheap, and it is what makes the
+critic/validator loop auditable.</li>
+<li><strong>Verdict vocabulary</strong> (<code>ACCEPT / REVISE / REJECT / NEEDS_EVIDENCE / NEEDS_EXPERIMENT</code>).</li>
+<li><strong>SQLite as the only store.</strong> Correct for a single-machine, single-operator tool.</li>
+<li><strong>Experiments with criteria locked before results.</strong> This matches the
+pre-registration discipline already in <code>research/HYPOTHESIS_GATE.md</code>.</li>
+<li><strong>Budgets as hard stops, with a human summary when hit.</strong></li>
+</ul>
+<p>Facts about this machine that change the plan:</p>
+<table>
+<thead>
+<tr>
+<th>Fact</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Only <code>ANTHROPIC_API_KEY</code> is set. No OpenAI or xAI key found in env or <code>.env</code> files.</td>
+<td>Adapters for OpenAI/xAI can be written and unit-tested against recorded responses, but the four-model demo in the first milestone cannot run until you add keys. Any role can be pointed at Anthropic or Ollama meanwhile.</td>
+</tr>
+<tr>
+<td>xAI's API is OpenAI-compatible (<code>https://api.x.ai/v1</code>).</td>
+<td><code>GrokProvider</code> is <code>OpenAIProvider</code> with a different base URL and key.</td>
+</tr>
+<tr>
+<td>Gemini has its own SDK (<code>google-genai</code>) with native JSON-schema output.</td>
+<td>Fourth adapter, <code>gemini</code>. Needs <code>GEMINI_API_KEY</code>, also not present yet. Four adapters total: anthropic, openai_compat, gemini, ollama.</td>
+</tr>
+<tr>
+<td>Ollama has <code>qwen3:30b-a3b</code>, <code>qwen2.5-coder:14b</code>, <code>deepseek-r1:14b</code>. No Llama build.</td>
+<td>&quot;Llama / local&quot; = <code>OllamaProvider</code>, model name from config.</td>
+</tr>
+<tr>
+<td><code>oracle-ai/oracle/llm/ollama_client.py</code> already wraps Ollama with token usage.</td>
+<td>Copy the ~30 lines that matter; do not import <code>oracle</code> as a dependency. Roundtable stays standalone.</td>
+</tr>
+<tr>
+<td>Python 3.14 + <code>uv</code>, no SDKs installed globally.</td>
+<td>Project gets its own <code>uv</code> venv; <code>requires-python &gt;= 3.12</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-unnecessary-complexity-cut-or-defer">2. Unnecessary complexity (cut or defer)</h2>
+<table>
+<thead>
+<tr>
+<th>Spec item</th>
+<th>Decision</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>General tool system with provider-native function calling (Python exec, shell, git, web, DB, APIs…)</td>
+<td><strong>Defer to M4.</strong> In M1–M3 an agent does not call tools. It returns structured output and the orchestrator performs the one or two actions that output implies (write files to the workspace, run pytest).</td>
+<td>Tool-calling parity across Anthropic, OpenAI, xAI, and Ollama is the flakiest part of any multi-provider system. Keeping the agent loop to one request → one validated JSON reply makes the first milestone deterministic and cheap. Role permissions still exist; they gate what the <em>orchestrator</em> will do with an agent's output.</td>
+</tr>
+<tr>
+<td>Git branches per agent, diff review before merge</td>
+<td><strong>Defer to M4.</strong> M1–M3 use a plain workspace directory per run; the engineer's files are written there and versioned by copying into <code>artifacts/</code>.</td>
+<td>Git adds value once there are multiple concurrent engineers or long-lived projects. The first milestone has one engineer and one task.</td>
+</tr>
+<tr>
+<td>Planner that decomposes objectives into a task graph</td>
+<td><strong>Defer to M6.</strong> The first milestone is a single task.</td>
+<td>Your own first-milestone list starts at &quot;Claude proposes&quot;, not &quot;Planner decomposes&quot;. A planner on top of a working single-task pipeline is a small addition; a planner first is a large one.</td>
+</tr>
+<tr>
+<td>Researcher role, hypotheses table populated by LLMs</td>
+<td><strong>Defer to M5/M6.</strong> Table exists from day one so the schema does not churn.</td>
+<td>No research step in the first milestone.</td>
+</tr>
+<tr>
+<td>Autonomy levels 0–4</td>
+<td><strong>Keep the setting, implement levels 0–2 only.</strong> Level 3–4 (autonomous experiments, continuous investigation) come with M5.</td>
+<td>Level 2 is exactly what the first milestone needs: write code in a workspace, run tests.</td>
+</tr>
+<tr>
+<td>Vector-search memory</td>
+<td><strong>Cut.</strong> &quot;Memory&quot; in v1 is (a) the project's own SQLite rows selected by task, and (b) a <code>lessons</code> table with keyword search.</td>
+<td>You said start simple. Selecting rows by task already achieves &quot;do not dump the whole conversation into every prompt&quot;.</td>
+</tr>
+<tr>
+<td>Per-provider <em>spending</em> limits</td>
+<td><strong>Keep counts and tokens per provider; cost is derived from a <code>pricing.yaml</code>.</strong> Unknown model → cost <code>NULL</code>, token cap still enforced.</td>
+<td>Providers do not return dollar amounts. Adapters stay dumb; the orchestrator prices.</td>
+</tr>
+<tr>
+<td>Separate <code>agent_outputs</code> and <code>messages</code> blobs</td>
+<td><strong>One <code>agent_calls</code> table</strong> holds prompt, response, parsed JSON, usage, timing. Domain tables (<code>proposals</code>, <code>critiques</code>…) reference it.</td>
+<td>One row per LLM call answers every &quot;which model / which prompt / when / what did it see / what did it produce&quot; question.</td>
+</tr>
+<tr>
+<td>Web dashboard</td>
+<td><strong>Cut for now.</strong> <code>roundtable show &lt;run&gt;</code> prints the same information as a rich table.</td>
+<td>As you specified.</td>
+</tr>
+<tr>
+<td>Retry/backoff framework, async, parallel agents</td>
+<td><strong>Cut.</strong> Synchronous, one call at a time, one retry on schema failure.</td>
+<td>Sequential is easier to log and debug; parallel research agents arrive with M6.</td>
+</tr>
+</tbody>
+</table>
+<p>Net: the first milestone is about <strong>8 modules and roughly 1,200 lines</strong>, most of them
+schemas and SQL.</p>
+<hr />
+<h2 id="3-smallest-viable-architecture">3. Smallest viable architecture</h2>
+<pre><code>project.yaml ──► Orchestrator ──► Pipeline (state machine)
+                     │                  │
+                     │        ┌─────────┴──────────┐
+                     │        ▼                    ▼
+                     │   Agent(role)          Actions (orchestrator-only)
+                     │   = prompt template      write_workspace(files)
+                     │   + provider             run_tests(workspace)
+                     │   + output schema
+                     │        │
+                     ▼        ▼
+                 Store (SQLite) ◄──── every call, artifact, verdict, decision
+</code></pre>
+<p>Five concepts, nothing else:</p>
+<ol>
+<li><strong>Provider</strong> – sends messages, returns text (+ parsed JSON if a schema was
+requested) and usage. Four implementations: <code>anthropic</code>, <code>openai_compat</code>
+(OpenAI and xAI), <code>gemini</code>, <code>ollama</code>.</li>
+<li><strong>Agent</strong> – a role name bound to a provider, a model, a system prompt
+template, an output schema, and a permission set. Fully described in YAML.</li>
+<li><strong>Pipeline</strong> – a state machine over <code>Stage</code> values. Each stage builds a
+context pack from the store, calls one agent, validates, writes rows, and
+returns the next stage. Budget checked at every transition.</li>
+<li><strong>Store</strong> – SQLite, WAL mode, one file per project. Thin repository functions,
+no ORM.</li>
+<li><strong>Actions</strong> – the only side effects: write files into the run workspace, run
+<code>pytest</code> in a subprocess. Gated by the role's permissions.</li>
+</ol>
+<hr />
+<h2 id="4-directory-structure">4. Directory structure</h2>
+<pre><code>roundtable/
+├── pyproject.toml                 # uv-managed; deps: anthropic, openai, google-genai, ollama, pydantic, pyyaml, rich, typer
+├── README.md
+├── docs/
+│   └── DESIGN.md                  # this file
+├── examples/
+│   ├── project.yaml               # the first-milestone example
+│   └── pricing.yaml               # $/Mtok per model; unknown → cost NULL
+├── roundtable/
+│   ├── __init__.py
+│   ├── cli.py                     # `roundtable run|show|calls|resume`
+│   ├── config.py                  # pydantic models for project.yaml; env-var key loading
+│   ├── schemas.py                 # all inter-agent JSON (Proposal, Critique, …)
+│   ├── store.py                   # SQLite DDL + repository functions
+│   ├── budget.py                  # token / call / round / cost / time caps
+│   ├── providers/
+│   │   ├── __init__.py            # registry: name → class
+│   │   ├── base.py                # Message, Usage, Completion, Provider protocol
+│   │   ├── anthropic_provider.py
+│   │   ├── openai_compat.py       # OpenAI + xAI (base_url)
+│   │   ├── gemini_provider.py
+│   │   └── ollama_provider.py
+│   ├── agents.py                  # Agent: role + provider + prompt + schema + permissions; `call()`
+│   ├── prompts/                   # one .md per role; {{placeholders}} filled from the context pack
+│   │   ├── proposer.md
+│   │   ├── critic.md
+│   │   ├── reviser.md
+│   │   ├── engineer.md
+│   │   ├── validator.md
+│   │   └── synthesizer.md
+│   ├── actions.py                 # write_workspace(), run_tests(); permission checks live here
+│   ├── pipeline.py                # Stage enum + transition table + run loop
+│   └── report.py                  # final human summary (markdown) from the store
+├── tests/
+│   ├── test_schemas.py
+│   ├── test_store.py
+│   ├── test_providers_fake.py     # FakeProvider returns canned JSON; drives the whole pipeline offline
+│   └── test_pipeline.py
+└── runs/                          # gitignored: &lt;project&gt;/&lt;run_id&gt;/workspace, artifacts, roundtable.db
+</code></pre>
+<p>Config file, <code>examples/project.yaml</code>:</p>
+<pre><code class="language-yaml">project:
+  name: dd-demo
+  objective: &gt;
+    Implement max_drawdown(equity: list[float]) -&gt; float in dd.py, returning the
+    largest peak-to-trough decline as a positive fraction (0.0 if none), with pytest tests.
+  requirements:
+    - &quot;Returns 0.0 for monotonically increasing or empty series&quot;
+    - &quot;Handles a series that ends at its trough&quot;
+    - &quot;Pure Python, no third-party dependencies&quot;
+  repo: ~/some/project             # ANY directory or git repo. Omit for a greenfield task.
+                                   # Each run works in its own copy (git worktree if repo is git,
+                                   # else a file copy) under runs/&lt;project&gt;/&lt;run_id&gt;/workspace.
+                                   # The original is never modified until a human merges (M4).
+
+autonomy: 2                        # 0 advise, 1 propose, 2 write to workspace + run tests
+
+budget:
+  max_rounds: 3                    # critique → revise cycles
+  max_fix_rounds: 1                # engineer retries after failing tests
+  max_calls: 12
+  max_tokens: 200000
+  max_cost_usd: 5.00
+  max_seconds: 900
+  per_provider:
+    anthropic: { max_tokens: 120000 }
+    ollama:    { max_tokens: 200000 }
+
+providers:
+  anthropic:    { type: anthropic,     api_key_env: ANTHROPIC_API_KEY }
+  openai:       { type: openai_compat, api_key_env: OPENAI_API_KEY }
+  xai:          { type: openai_compat, api_key_env: XAI_API_KEY, base_url: https://api.x.ai/v1 }
+  gemini:       { type: gemini,        api_key_env: GEMINI_API_KEY }
+  ollama:       { type: ollama,        host: http://localhost:11434 }
+
+agents:
+  proposer:     { provider: anthropic, model: ${ANTHROPIC_MODEL} }
+  critic:       { provider: xai,       model: ${XAI_MODEL} }
+  reviser:      { provider: anthropic, model: ${ANTHROPIC_MODEL} }
+  engineer:     { provider: openai,    model: ${OPENAI_MODEL} }      # Codex-class model
+  validator:    { provider: gemini,    model: ${GEMINI_MODEL} }
+  reviewer:     { provider: ollama,    model: qwen3:30b-a3b }        # optional second, local review
+  synthesizer:  { provider: anthropic, model: ${ANTHROPIC_MODEL} }
+
+permissions:                       # what the orchestrator will DO with a role's output
+  proposer:    { workspace: none,  run_tests: false }
+  critic:      { workspace: read,  run_tests: false }
+  reviser:     { workspace: none,  run_tests: false }
+  engineer:    { workspace: write, run_tests: false }
+  validator:   { workspace: read,  run_tests: true }
+  synthesizer: { workspace: read,  run_tests: false }
+</code></pre>
+<p><code>${VAR}</code> expands from the environment so model IDs are never in the repo.
+Missing keys fail at config load with the provider and env var named, before
+any call is made.</p>
+<hr />
+<h2 id="5-provider-interface">5. Provider interface</h2>
+<pre><code class="language-python"># roundtable/providers/base.py
+from dataclasses import dataclass, field
+from typing import Literal, Protocol
+from pydantic import BaseModel
+
+@dataclass(frozen=True)
+class Message:
+    role: Literal[&quot;system&quot;, &quot;user&quot;, &quot;assistant&quot;]
+    content: str
+
+@dataclass(frozen=True)
+class Usage:
+    input_tokens: int
+    output_tokens: int
+    cached_input_tokens: int = 0
+
+@dataclass
+class Completion:
+    text: str                     # raw model text (or serialized JSON when schema was used)
+    parsed: dict | None           # provider-side JSON if it produced one; orchestrator re-validates
+    usage: Usage
+    provider: str
+    model: str
+    latency_ms: int
+    request_id: str | None = None
+    stop_reason: str | None = None
+    raw: dict = field(default_factory=dict)   # provider response, stored for audit
+
+class ProviderError(Exception): ...
+class SchemaError(ProviderError): ...      # model produced no parseable JSON
+
+class Provider(Protocol):
+    name: str
+    def run(
+        self,
+        messages: list[Message],
+        *,
+        schema: type[BaseModel] | None = None,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        timeout_s: float = 180.0,
+    ) -&gt; Completion: ...
+</code></pre>
+<p>How each adapter gets structured output (the only per-provider logic):</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>anthropic</code></td>
+<td>One tool whose <code>input_schema</code> is <code>schema.model_json_schema()</code>, <code>tool_choice</code> forced to it. Response <code>tool_use.input</code> is the JSON. Usage from <code>usage.input_tokens/output_tokens</code>.</td>
+</tr>
+<tr>
+<td><code>openai_compat</code></td>
+<td><code>response_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;json_schema&quot;: {...,&quot;strict&quot;: true}}</code>. Same code path for xAI with <code>base_url</code>. If a model rejects strict mode, fall back to <code>json_object</code> + schema in the system prompt.</td>
+</tr>
+<tr>
+<td><code>gemini</code></td>
+<td><code>response_mime_type=&quot;application/json&quot;</code> + <code>response_schema=&lt;schema&gt;</code> in <code>GenerateContentConfig</code>. Usage from <code>usage_metadata</code>.</td>
+</tr>
+<tr>
+<td><code>ollama</code></td>
+<td><code>format=&lt;json schema dict&gt;</code> on <code>chat()</code>. Usage from <code>prompt_eval_count/eval_count</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The orchestrator, not the adapter, does <code>schema.model_validate(parsed)</code>. On failure it
+makes <strong>one</strong> repair call: same messages plus an assistant turn with the bad
+output and a user turn with the validation error. A second failure marks the
+step <code>FAILED_SCHEMA</code> and the pipeline halts to synthesis.</p>
+<p>Adapters know nothing about roles, prompts, budgets, or the store.</p>
+<hr />
+<h2 id="6-agent-and-message-schemas">6. Agent and message schemas</h2>
+<p>All in <code>roundtable/schemas.py</code> as pydantic models. IDs are short and stable
+(<code>P1</code>, <code>P1r2</code>, <code>C3</code>, <code>I1</code>, <code>T1</code>, <code>R1</code>, <code>S1</code>) so agents can cite each other.</p>
+<pre><code class="language-python">class Verdict(StrEnum):
+    ACCEPT = &quot;ACCEPT&quot;; REVISE = &quot;REVISE&quot;; REJECT = &quot;REJECT&quot;
+    NEEDS_EVIDENCE = &quot;NEEDS_EVIDENCE&quot;; NEEDS_EXPERIMENT = &quot;NEEDS_EXPERIMENT&quot;
+
+class Severity(StrEnum):
+    BLOCKER = &quot;blocker&quot;; MAJOR = &quot;major&quot;; MINOR = &quot;minor&quot;
+
+class Problem(BaseModel):
+    severity: Severity
+    description: str
+    location: str | None = None          # file:line, requirement id, assumption index…
+
+class Proposal(BaseModel):                # proposer + reviser
+    proposal_id: str
+    revision_of: str | None = None
+    claim: str                            # one sentence: what will be built / what is asserted
+    approach: str                         # reasoning summary, &lt;= ~300 words
+    assumptions: list[str]
+    evidence: list[str]                   # things known, cited; empty is allowed and honest
+    risks: list[str]
+    tests_required: list[str]             # concrete, checkable
+    responses_to_criticism: list[CriticismResponse] = []   # reviser only
+    confidence: float = Field(ge=0, le=1)
+
+class CriticismResponse(BaseModel):
+    problem: str
+    action: Literal[&quot;fixed&quot;, &quot;rejected&quot;, &quot;deferred&quot;]
+    reason: str
+
+class Critique(BaseModel):
+    proposal_id: str
+    verdict: Verdict
+    problems: list[Problem]               # may be empty ONLY with verdict ACCEPT and a stated reason
+    counterarguments: list[str]
+    tests_required: list[str]
+    confidence: float = Field(ge=0, le=1)
+
+class FileChange(BaseModel):
+    path: str                             # relative, no '..', within workspace
+    content: str
+
+class Implementation(BaseModel):
+    proposal_id: str
+    files: list[FileChange]
+    test_command: str = &quot;python -m pytest -q&quot;
+    notes: str
+    assumptions: list[str]
+    known_gaps: list[str]
+
+class TestResult(BaseModel):              # produced by actions.run_tests, never by an LLM
+    command: str
+    exit_code: int
+    passed: int; failed: int; errors: int
+    duration_s: float
+    stdout_tail: str                      # last ~4 KB
+    timed_out: bool = False
+
+class RequirementCheck(BaseModel):
+    requirement: str
+    satisfied: bool
+    evidence: str                         # must cite a file/line or a test name
+
+class Review(BaseModel):                  # validator
+    implementation_id: str
+    verdict: Verdict
+    requirement_checks: list[RequirementCheck]
+    problems: list[Problem]
+    confidence: float = Field(ge=0, le=1)
+
+class Disagreement(BaseModel):
+    topic: str
+    positions: list[Position]             # {agent_role, position}
+    resolved: bool
+    resolution: str | None = None
+
+class Synthesis(BaseModel):
+    what_was_built: str
+    test_summary: str
+    disagreements: list[Disagreement]     # preserved, not collapsed
+    remaining_risks: list[str]
+    recommended_next_experiment: str | None
+    overall_verdict: Verdict              # REJECT is a valid, expected outcome
+    confidence: float = Field(ge=0, le=1)
+</code></pre>
+<p>Anti-sycophancy rules enforced in prompts and validators:</p>
+<ul>
+<li>A <code>Critique</code> with <code>verdict=ACCEPT</code> and zero problems must include a
+<code>counterarguments</code> entry explaining what was checked. Validator rejects
+otherwise → repair call.</li>
+<li>The critic prompt never includes which provider or model wrote the proposal.</li>
+<li>The validator receives requirements + files + test output. It does <strong>not</strong>
+receive the proposal's reasoning or the critic's verdicts, so it checks the
+artifact, not the argument.</li>
+<li>The synthesizer receives all verdicts and must list every <code>REVISE/REJECT</code>
+problem that was marked <code>rejected</code> or <code>deferred</code> by the reviser as an
+unresolved disagreement.</li>
+</ul>
+<p>Context packs (what each agent actually sees; nothing else):</p>
+<p>For an existing repository the workspace is not empty, so agents need to read
+before they write. In M1–M3 this is a two-step engineer stage, still without
+tool calling: step one returns <code>FilesRequested{paths: [...]}</code> from the file
+tree; the orchestrator returns those files (size-capped, wrapped as evidence
+blocks); step two returns the <code>Implementation</code>. The critic and validator get
+the same read-only mechanism. M4 replaces this with native tool calling.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Receives</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>proposer</td>
+<td>objective, requirements, relevant <code>lessons</code> (keyword match on objective)</td>
+</tr>
+<tr>
+<td>critic</td>
+<td>objective, requirements, the proposal JSON, workspace file tree (read)</td>
+</tr>
+<tr>
+<td>reviser</td>
+<td>its own prior proposal, the critique JSON</td>
+</tr>
+<tr>
+<td>engineer</td>
+<td>objective, requirements, accepted proposal, workspace file tree, contents of files it asks for (see below), prior <code>TestResult</code> + own prior files on a fix round</td>
+</tr>
+<tr>
+<td>validator</td>
+<td>objective, requirements, files, <code>TestResult</code></td>
+</tr>
+<tr>
+<td>synthesizer</td>
+<td>objective, all proposals/critiques/reviews (JSON), <code>TestResult</code>, budget summary</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-sqlite-schema">7. SQLite schema</h2>
+<p>One database per project, <code>runs/&lt;project&gt;/roundtable.db</code>, WAL mode, foreign keys on.</p>
+<pre><code class="language-sql">CREATE TABLE projects (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, objective TEXT NOT NULL,
+  requirements_json TEXT NOT NULL, config_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE runs (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+  stage TEXT NOT NULL,                       -- current Stage; enables resume
+  status TEXT NOT NULL,                      -- running | done | halted_budget | halted_error | rejected
+  round INTEGER NOT NULL DEFAULT 0, fix_round INTEGER NOT NULL DEFAULT 0,
+  workspace_path TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT,
+  halt_reason TEXT);
+
+-- The audit log. One row per LLM call. Answers who/what/when/what-did-it-see/what-did-it-cost.
+CREATE TABLE agent_calls (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  stage TEXT NOT NULL, role TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+  attempt INTEGER NOT NULL DEFAULT 1,        -- 2 = schema repair call
+  prompt_hash TEXT NOT NULL,                 -- sha256 of messages_json; groups identical prompts
+  messages_json TEXT NOT NULL,               -- exact input the agent received
+  context_refs_json TEXT NOT NULL,           -- ids of rows used to build the prompt (P1, C2, T1 …)
+  response_text TEXT, parsed_json TEXT, schema_name TEXT,
+  valid INTEGER NOT NULL,                    -- did parsed_json validate
+  error TEXT,
+  input_tokens INTEGER, output_tokens INTEGER, cached_input_tokens INTEGER,
+  cost_usd REAL,                             -- NULL when model not in pricing.yaml
+  latency_ms INTEGER, request_id TEXT,
+  started_at TEXT NOT NULL, finished_at TEXT NOT NULL);
+CREATE INDEX ix_calls_run ON agent_calls(run_id, started_at);
+
+CREATE TABLE proposals (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  call_id TEXT NOT NULL REFERENCES agent_calls(id),
+  revision_of TEXT REFERENCES proposals(id), round INTEGER NOT NULL,
+  status TEXT NOT NULL,                      -- proposed | criticized | superseded | accepted | rejected
+  body_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE critiques (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  call_id TEXT NOT NULL REFERENCES agent_calls(id),
+  target_kind TEXT NOT NULL, target_id TEXT NOT NULL,   -- proposal | implementation
+  verdict TEXT NOT NULL, body_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE artifacts (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  call_id TEXT REFERENCES agent_calls(id),   -- NULL for test output produced by the orchestrator
+  kind TEXT NOT NULL,                        -- file | test_output | report
+  path TEXT NOT NULL,                        -- relative to run dir; content copied to artifacts/&lt;id&gt;/
+  sha256 TEXT NOT NULL, bytes INTEGER NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE implementations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  call_id TEXT NOT NULL REFERENCES agent_calls(id),
+  proposal_id TEXT NOT NULL REFERENCES proposals(id), fix_round INTEGER NOT NULL,
+  artifact_ids_json TEXT NOT NULL, body_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE test_runs (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  implementation_id TEXT NOT NULL REFERENCES implementations(id),
+  command TEXT NOT NULL, exit_code INTEGER NOT NULL,
+  passed INTEGER, failed INTEGER, errors INTEGER, timed_out INTEGER NOT NULL,
+  output_artifact_id TEXT REFERENCES artifacts(id), duration_s REAL, created_at TEXT NOT NULL);
+
+CREATE TABLE decisions (                     -- every state transition and every verdict application
+  id INTEGER PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  from_stage TEXT NOT NULL, to_stage TEXT NOT NULL,
+  reason TEXT NOT NULL, refs_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE open_questions (
+  id INTEGER PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id),
+  raised_by_role TEXT NOT NULL, question TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL);
+
+-- Present from day one so later milestones do not migrate; unused until M5/M6.
+CREATE TABLE hypotheses (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+  statement TEXT NOT NULL, status TEXT NOT NULL, body_json TEXT NOT NULL, created_at TEXT NOT NULL);
+
+CREATE TABLE experiments (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+  hypothesis_id TEXT REFERENCES hypotheses(id),
+  prereg_json TEXT NOT NULL,                 -- hypothesis, expected, method, success/failure criteria, data, assumptions
+  prereg_hash TEXT NOT NULL,                 -- sha256 of prereg_json; result rows must carry the same hash
+  locked_at TEXT NOT NULL,
+  result_json TEXT, result_hash_check INTEGER, -- 1 if prereg_hash matched when result was written
+  interpreted_at TEXT, decision TEXT);       -- PASS | KILL | INCONCLUSIVE
+
+CREATE TABLE lessons (                       -- cross-run research memory; keyword search only in v1
+  id INTEGER PRIMARY KEY, project_id TEXT, scope TEXT NOT NULL,   -- project | global
+  text TEXT NOT NULL, tags TEXT NOT NULL, source_run_id TEXT, created_at TEXT NOT NULL);
+
+CREATE TABLE usage_by_provider (             -- materialized per run for fast budget checks
+  run_id TEXT NOT NULL, provider TEXT NOT NULL,
+  calls INTEGER NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL,
+  cost_usd REAL, PRIMARY KEY (run_id, provider));
+</code></pre>
+<p>&quot;What changed afterward&quot; is answered by joining <code>proposals.revision_of</code>,
+<code>critiques.target_id</code>, and <code>decisions.refs_json</code>, all of which point back to
+<code>agent_calls.id</code>.</p>
+<hr />
+<h2 id="8-orchestration-state-machine">8. Orchestration state machine</h2>
+<pre><code class="language-python">class Stage(StrEnum):
+    INIT = &quot;INIT&quot;; PROPOSE = &quot;PROPOSE&quot;; CRITIQUE = &quot;CRITIQUE&quot;; REVISE = &quot;REVISE&quot;
+    IMPLEMENT = &quot;IMPLEMENT&quot;; TEST = &quot;TEST&quot;; FIX = &quot;FIX&quot;; REVIEW = &quot;REVIEW&quot;
+    SYNTHESIZE = &quot;SYNTHESIZE&quot;; DONE = &quot;DONE&quot;; HALTED = &quot;HALTED&quot;
+</code></pre>
+<pre><code>INIT ──► PROPOSE ──► CRITIQUE ──┬─ ACCEPT ─────────────────────► IMPLEMENT ──► TEST ──┬─ pass ──► REVIEW ──► SYNTHESIZE ──► DONE
+                       ▲        ├─ REVISE, round &lt; max ─► REVISE ┘                     └─ fail ──► FIX ──► TEST (once) ──► REVIEW …
+                       │        ├─ REVISE, round == max ─────────► IMPLEMENT  (open criticisms attached to context; reported as disagreement)
+                       └────────┤
+                                ├─ REJECT ───────────────────────► SYNTHESIZE  (nothing built; report says why)
+                                └─ NEEDS_EVIDENCE / NEEDS_EXPERIMENT ─► SYNTHESIZE + open_questions row  (no researcher in v1)
+
+Any stage: budget exceeded or unrecoverable error ──► HALTED ──► SYNTHESIZE(partial) ──► DONE
+</code></pre>
+<p>Transition rules, all recorded in <code>decisions</code>:</p>
+<table>
+<thead>
+<tr>
+<th>From</th>
+<th>Condition</th>
+<th>To</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PROPOSE</td>
+<td>proposal valid</td>
+<td>CRITIQUE</td>
+</tr>
+<tr>
+<td>CRITIQUE</td>
+<td>ACCEPT</td>
+<td>IMPLEMENT</td>
+</tr>
+<tr>
+<td>CRITIQUE</td>
+<td>REVISE and <code>round &lt; max_rounds</code></td>
+<td>REVISE (round += 1)</td>
+</tr>
+<tr>
+<td>CRITIQUE</td>
+<td>REVISE and <code>round == max_rounds</code></td>
+<td>IMPLEMENT (flag <code>unresolved=true</code>)</td>
+</tr>
+<tr>
+<td>CRITIQUE</td>
+<td>REJECT</td>
+<td>SYNTHESIZE</td>
+</tr>
+<tr>
+<td>CRITIQUE</td>
+<td>NEEDS_EVIDENCE / NEEDS_EXPERIMENT</td>
+<td>SYNTHESIZE (+ open question)</td>
+</tr>
+<tr>
+<td>REVISE</td>
+<td>revision valid</td>
+<td>CRITIQUE</td>
+</tr>
+<tr>
+<td>IMPLEMENT</td>
+<td>files written (path-checked)</td>
+<td>TEST</td>
+</tr>
+<tr>
+<td>TEST</td>
+<td>exit 0</td>
+<td>REVIEW</td>
+</tr>
+<tr>
+<td>TEST</td>
+<td>exit ≠ 0 and <code>fix_round &lt; max_fix_rounds</code></td>
+<td>FIX (fix_round += 1)</td>
+</tr>
+<tr>
+<td>TEST</td>
+<td>exit ≠ 0 and fix rounds exhausted</td>
+<td>REVIEW (validator sees failing tests)</td>
+</tr>
+<tr>
+<td>FIX</td>
+<td>files written</td>
+<td>TEST</td>
+</tr>
+<tr>
+<td>REVIEW</td>
+<td>any verdict</td>
+<td>SYNTHESIZE (verdict is data for the synthesizer, not a branch)</td>
+</tr>
+<tr>
+<td>SYNTHESIZE</td>
+<td>synthesis valid</td>
+<td>DONE</td>
+</tr>
+<tr>
+<td>any</td>
+<td><code>budget.exceeded()</code></td>
+<td>HALTED → SYNTHESIZE with <code>partial=true</code></td>
+</tr>
+</tbody>
+</table>
+<p>Loop body (<code>pipeline.run</code>):</p>
+<pre><code class="language-python">while stage not in (DONE,):
+    budget.check(store, run_id)                 # raises BudgetExceeded → HALTED
+    handler = HANDLERS[stage]                   # one function per stage
+    next_stage, reason, refs = handler(ctx)     # builds context pack, calls agent, writes rows
+    store.record_decision(run_id, stage, next_stage, reason, refs)
+    store.set_stage(run_id, next_stage)
+    stage = next_stage
+</code></pre>
+<p>Because <code>runs.stage</code> is persisted after every transition, <code>roundtable resume &lt;run_id&gt;</code> (M3) restarts at the current stage with no re-billing.</p>
+<p>Autonomy gating inside handlers: level 0 stops after CRITIQUE (advice only);
+level 1 stops after the final REVISE/ACCEPT; level 2 runs the whole pipeline.
+Levels 3–4 are reserved for experiments (M5).</p>
+<hr />
+<h2 id="9-one-complete-example-execution">9. One complete example execution</h2>
+<p><code>roundtable run examples/project.yaml</code> with the config in §4 and <code>max_rounds: 3</code>.</p>
+<pre><code>[run 9f2c1a] project=dd-demo autonomy=2 budget: 12 calls / 200k tok / $5.00 / 900s
+[INIT]      workspace runs/dd-demo/9f2c1a/workspace
+[PROPOSE]   proposer  anthropic/&lt;model&gt;  1.9s  in=812 out=441  $0.01
+            P1  claim=&quot;Track running peak; drawdown = (peak - x)/peak; return max&quot;  conf=0.86
+            assumptions: 3  tests_required: 4
+[CRITIQUE]  critic    xai/&lt;model&gt;        4.1s  in=1104 out=388  $0.01
+            C1 on P1 → REVISE  conf=0.78
+              major   &quot;Division by zero when peak == 0 (equity can start at 0 or go negative)&quot;
+              minor   &quot;tests_required omits the 'ends at trough' requirement&quot;
+[REVISE]    reviser   anthropic/&lt;model&gt;  2.3s  in=1391 out=502  $0.01
+            P1r2  revision_of=P1  conf=0.9
+              fixed:    peak&lt;=0 → treat drawdown as 0 for that step; document assumption
+              fixed:    added test 'ends at trough'
+              rejected: none
+[CRITIQUE]  critic    xai/&lt;model&gt;        3.7s  in=1522 out=214  $0.01
+            C2 on P1r2 → ACCEPT  conf=0.84  checked: zero/negative peak, empty input, monotone input
+[IMPLEMENT] engineer  openai/&lt;model&gt;     6.0s  in=1633 out=1210 $0.02
+            I1  files: dd.py (23 lines), test_dd.py (31 lines)  known_gaps: 0
+[TEST]      python -m pytest -q   0.4s   exit=1   passed=4 failed=1
+            FAILED test_dd.py::test_ends_at_trough - assert 0.5 == 0.6
+[FIX]       engineer  openai/&lt;model&gt;     5.2s  in=2410 out=980  $0.02
+            I1f1  files: dd.py  notes=&quot;off-by-one: peak updated after drawdown calc, not before&quot;
+[TEST]      python -m pytest -q   0.4s   exit=0   passed=5 failed=0
+[REVIEW]    validator ollama/qwen3:30b-a3b  21.8s  in=2044 out=610  cost=n/a
+            R1 on I1f1 → ACCEPT  conf=0.7
+              req &quot;0.0 for monotone/empty&quot;        ✓  test_dd.py::test_monotone, ::test_empty
+              req &quot;ends at trough&quot;                 ✓  test_dd.py::test_ends_at_trough
+              req &quot;pure python&quot;                    ✓  no imports besides typing
+              minor &quot;no test for a single-element series&quot;
+[SYNTHESIZE] synthesizer anthropic/&lt;model&gt; 3.4s  in=3980 out=720 $0.02
+            S1 overall=ACCEPT conf=0.82  disagreements: 1 (unresolved: 0)
+[DONE]      8 calls, 20,461 tokens, $0.10, 49s.  report: runs/dd-demo/9f2c1a/report.md
+</code></pre>
+<p><code>report.md</code> (abridged):</p>
+<pre><code># dd-demo — run 9f2c1a
+
+Overall verdict: ACCEPT (confidence 0.82)
+
+## What was built
+dd.py: max_drawdown() using a running-peak scan; test_dd.py with 5 tests. All pass.
+
+## Test results
+python -m pytest -q → 5 passed (after 1 fix round; first run failed test_ends_at_trough).
+
+## Disagreements
+1. Zero/negative peak handling — critic (C1) called it a major bug; reviser treated
+   drawdown as 0 for those steps and added the assumption &quot;equity is a non-negative
+   account value&quot;. Resolved (C2 ACCEPT). Kept as an explicit assumption in dd.py docstring.
+
+## Remaining risks
+- Validator: no single-element test.
+- Behaviour for negative equity is defined by assumption, not by requirement.
+
+## Recommended next experiment
+Property-based test (hypothesis) comparing against a brute-force O(n²) reference
+on random series including zeros and negatives.
+
+## Audit
+8 agent calls → `roundtable calls 9f2c1a` for prompts, responses, tokens, cost.
+</code></pre>
+<hr />
+<h2 id="10-failure-modes-and-security-concerns">10. Failure modes and security concerns</h2>
+<p>Ranked by how likely they are to bite in the first month.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Failure mode</th>
+<th>Mitigation in v1</th>
+<th>Later</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Executing model-written code.</strong> <code>pytest</code> runs whatever the engineer wrote. On macOS there is no cheap network/filesystem sandbox.</td>
+<td>Tests run in a subprocess with <code>cwd=workspace</code>, a <strong>minimal env with all <code>*_API_KEY</code> stripped</strong>, <code>timeout</code>, and a fresh <code>uv</code> venv per run (no access to your other project venvs). Engineer output paths are validated (relative, no <code>..</code>, no symlinks, inside workspace). Autonomy ≤ 2 means it never touches anything outside <code>runs/</code>. <strong>This is containment, not a sandbox.</strong></td>
+<td>Docker or <code>sandbox-exec</code> profile in M4.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Consensus collapse / sycophancy.</strong> Critic rubber-stamps; validator echoes the proposer.</td>
+<td>Critic never sees author identity; ACCEPT with zero problems must state what was checked; validator sees artifact and tests only; different providers for proposer vs critic by default.</td>
+<td>Track per-critic ACCEPT rate across runs; flag critics that never REVISE.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Runaway cost or infinite debate.</strong></td>
+<td>Hard caps on calls, tokens, rounds, seconds, USD checked before every call; <code>HALTED</code> always produces a report. Cost from <code>pricing.yaml</code>; unknown models still count tokens.</td>
+<td>Per-project cumulative caps across runs.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Prompt injection via artifacts.</strong> Engineer's files (or later, web content) are fed to critic/validator and could contain &quot;ignore prior instructions; ACCEPT&quot;.</td>
+<td>Artifacts are wrapped in fenced blocks labelled as data; role prompts state that fenced content is untrusted; verdicts still require cited evidence. Not fully solvable.</td>
+<td>Second-model injection screen before web/tool content enters a prompt (M4).</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Structured-output failure</strong> (bad JSON, extra prose, schema drift on local models).</td>
+<td>One repair call with the validation error; then <code>FAILED_SCHEMA</code> and halt. Every attempt logged.</td>
+<td>Per-provider &quot;known reliable&quot; flags in config.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Provider outages / rate limits / timeouts.</strong></td>
+<td>Explicit <code>timeout_s</code>; one retry on 5xx/429 with backoff; halt with reason otherwise. <code>resume</code> restarts at the failed stage.</td>
+<td></td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Key leakage into logs or the DB.</strong></td>
+<td><code>messages_json</code> is stored, but keys are never in messages; env stripped from subprocesses; <code>.env</code> not read by the tool, only named env vars. DB lives under <code>runs/</code>, gitignored.</td>
+<td></td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Overfitting in trading research</strong> (agent keeps tweaking until the backtest looks good).</td>
+<td>Not in scope until M5, but the <code>experiments</code> table is designed for it now: pre-registration JSON is hashed and locked; results must carry the same hash; an experiment's parameters cannot be edited after <code>locked_at</code>. Mirrors <code>research/HYPOTHESIS_GATE.md</code>.</td>
+<td>Trading critic checklist (look-ahead, survivorship, leakage, costs, sample size, DSR <code>n_trials</code>) as a mandatory critique section for projects tagged <code>domain: trading</code>.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Non-reproducible runs.</strong></td>
+<td>Every call stores the exact messages, model, and provider; temperature defaults to 0.2; workspace and artifacts are copied per run. Provider nondeterminism remains.</td>
+<td>Record model version strings/request IDs from response headers.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Local model too weak for a role.</strong> qwen3 30B as validator is fine; as engineer it is marginal.</td>
+<td>Config decides; nothing hard-coded.</td>
+<td></td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>Engineer overwrites the wrong thing.</strong></td>
+<td>v1 workspace is per-run and empty at start; engineer can only write inside it.</td>
+<td>Git branches + reviewed diffs in M4 make &quot;never blindly overwrite&quot; enforceable for real repos.</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>Missing API keys</strong> for OpenAI/xAI/Gemini.</td>
+<td>Fails at config load with the env var named; you can point every role at <code>anthropic</code> or <code>ollama</code> until keys exist.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="implementation-plan">Implementation plan</h2>
+<p>Each milestone is a separate approval point and leaves the tool runnable.</p>
+<table>
+<thead>
+<tr>
+<th>M</th>
+<th>Deliverable</th>
+<th>Proves</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>M0</strong></td>
+<td>Package skeleton, <code>pyproject.toml</code>, <code>config.py</code>, <code>store.py</code> with the full DDL, <code>providers/base.py</code>, all four adapters (<code>anthropic</code>, <code>openai_compat</code>, <code>gemini</code>, <code>ollama</code>), <code>RecordedProvider</code>, <code>roundtable call &lt;role&gt; &quot;&lt;prompt&gt;&quot;</code> smoke command. Unit tests for store and schemas.</td>
+<td>Provider interface works against every backend you have a key for, with usage logged to SQLite.</td>
+<td>~500 lines</td>
+</tr>
+<tr>
+<td><strong>M1</strong></td>
+<td><code>schemas.py</code>, <code>agents.py</code>, prompts for proposer/critic/reviser, <code>pipeline.py</code> with <code>PROPOSE → CRITIQUE → REVISE</code> loop, <code>budget.py</code>, <code>roundtable run</code> and <code>roundtable show</code>. Full pipeline test on <code>FakeProvider</code>.</td>
+<td>The critique loop, round limits, and halting behave; logs answer every audit question.</td>
+<td>~450 lines</td>
+</tr>
+<tr>
+<td><strong>M2</strong></td>
+<td><code>actions.py</code> (per-run workspace from <code>repo:</code> via git worktree or copy, file reads on request, writes with path checks, pytest runner), engineer/validator/synthesizer prompts, remaining stages, <code>report.py</code>. <strong>This is your first milestone.</strong></td>
+<td>End-to-end <code>roundtable run project.yaml</code> against an existing repo with four providers. Needs <code>OPENAI_API_KEY</code>, <code>XAI_API_KEY</code>, <code>GEMINI_API_KEY</code>.</td>
+<td>~450 lines</td>
+</tr>
+<tr>
+<td><strong>M3</strong></td>
+<td><code>resume</code>, retries/backoff, <code>pricing.yaml</code>, <code>roundtable calls &lt;run&gt;</code> for prompt/response inspection, per-provider budgets, autonomy levels 0–2.</td>
+<td>Operability.</td>
+<td>~200 lines</td>
+</tr>
+<tr>
+<td><strong>M4</strong></td>
+<td>Git: per-run branch <code>agent/&lt;role&gt;/&lt;run&gt;</code>, engineer commits, validator reviews <code>git diff</code>, merge only on human approval (or autonomy ≥ 3 later). Docker/<code>sandbox-exec</code> test runner. Provider-native tool calling for engineer with role permissions.</td>
+<td>Safe use on real repos.</td>
+<td>~500 lines</td>
+</tr>
+<tr>
+<td><strong>M5</strong></td>
+<td>Experiments: <code>preregister</code> → lock → <code>run</code> → <code>interpret</code> CLI; trading critic checklist; <code>domain: trading</code> project tag; autonomy 3.</td>
+<td>Strategy research that can kill a strategy.</td>
+<td>~400 lines</td>
+</tr>
+<tr>
+<td><strong>M6</strong></td>
+<td>Planner stage producing a task list; researcher role; parallel proposals; <code>lessons</code> retrieval; autonomy 4 with budgets.</td>
+<td>The full collaboration protocol from the spec.</td>
+<td>~500 lines</td>
+</tr>
+<tr>
+<td>later</td>
+<td>Read-only web dashboard over the SQLite file.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Decisions I have made that you may want to override:</p>
+<ol>
+<li>Package and CLI are named <code>roundtable</code> (<code>python -m roundtable run project.yaml</code>).</li>
+<li>When critics still say REVISE at <code>max_rounds</code>, the pipeline <strong>implements anyway</strong> and reports the unresolved criticisms, rather than halting. Halting is a one-line config change (<code>on_unresolved: halt</code>).</li>
+<li>NEEDS_EVIDENCE / NEEDS_EXPERIMENT end the run in v1 (no researcher yet) and are recorded as open questions.</li>
+<li>Agents do not call tools in M1–M3; the orchestrator performs the actions their output implies.</li>
+<li>Sequential execution only; no async, no parallel agents, until M6.</li>
+</ol>
+<hr />
+<h2 id="addendum-patterns-to-copy-from-mttr-correlator-found-via-oracle-after-the-first-draft">Addendum: patterns to copy from <code>mttr-correlator</code> (found via Oracle after the first draft)</h2>
+<p><code>mttr-correlator/src/causeway/llm/provider.py</code> already solves three things this
+design needs. Roundtable stays standalone (no import), but the code is copied,
+not re-derived.</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>What it does there</th>
+<th>Use in roundtable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RecordedProvider</code> with prompt guards</td>
+<td>Replays canned outputs per role and ordinal, and asserts <code>expects_prompt_contains</code> / <code>forbids_prompt_contains</code> on every prompt.</td>
+<td>Replaces the planned <code>FakeProvider</code>. The guards turn the anti-sycophancy rules into tests: the critic recording forbids the proposer's model name in its prompt; the validator recording forbids the proposal's <code>approach</code> text. A prompt-construction regression fails the offline pipeline test instead of silently biasing a live run.</td>
+</tr>
+<tr>
+<td><code>evidence_block()</code></td>
+<td>Wraps untrusted text in an XML-ish block with <code>id</code>, <code>type</code>, and <code>trust</code> attributes so the model reads it as data.</td>
+<td>Every artifact, test output, and (later) web result enters a prompt only through this wrapper. This is the concrete form of mitigation #4 in §10.</td>
+</tr>
+<tr>
+<td><code>pricing.py</code></td>
+<td><code>(input, output)</code> USD per token by model, with a default rate.</td>
+<td>Same shape, loaded from <code>examples/pricing.yaml</code>. One difference: roundtable stores <code>NULL</code> for unknown models rather than a default rate, so the report never shows a made-up dollar figure.</td>
+</tr>
+</tbody>
+</table>
+<p>Also present there and worth keeping in mind for M4: the single <code>HttpTransport</code>
+seam with a <code>RecordedTransport</code> for fully offline tests. Roundtable does not need
+it while the three provider SDKs are the only network callers, but it is the
+right shape if web research tools arrive.</p>
+<p>Milestone M0 changes accordingly: <code>RecordedProvider</code> with prompt guards instead
+of <code>FakeProvider</code>; <code>evidence_block()</code> lands in M1 with the first prompts.</p>
+<hr />
+<h2 id="addendum-2-subscription-backed-cli-providers-verified-2026-09-25">Addendum 2: subscription-backed CLI providers (verified 2026-09-25)</h2>
+<p>You asked whether the system can use your Claude, Codex, and Grok subscriptions
+the way you do from the terminal, instead of API keys. It can. Each CLI has a
+headless mode that takes a prompt, enforces a JSON schema, and prints a JSON
+envelope with usage. I smoke-tested every one with a trivial prompt from a
+scratch directory, using only the logins already on this machine.</p>
+<table>
+<thead>
+<tr>
+<th>CLI</th>
+<th>Version</th>
+<th>Login</th>
+<th>Headless invocation that worked</th>
+<th>Structured output</th>
+<th>Usage in envelope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claude</code></td>
+<td>2.1.282</td>
+<td>claude.ai (subscription)</td>
+<td><code>claude -p &quot;&lt;prompt&gt;&quot; --output-format json --json-schema '&lt;schema&gt;' --tools &quot;&quot; --max-turns 1 --no-session-persistence</code></td>
+<td><code>structured_output</code></td>
+<td><code>usage.*</code>, <code>total_cost_usd</code> (list price, informational)</td>
+</tr>
+<tr>
+<td><code>codex</code></td>
+<td>0.155.1</td>
+<td>ChatGPT</td>
+<td><code>codex exec --json --ephemeral --skip-git-repo-check -C &lt;dir&gt; -s read-only --output-schema schema.json -o last.txt &quot;&lt;prompt&gt;&quot;</code></td>
+<td>file from <code>-o</code>, or <code>item.completed</code> event</td>
+<td><code>turn.completed.usage</code></td>
+</tr>
+<tr>
+<td><code>grok</code></td>
+<td>1.0.40</td>
+<td>xAI account</td>
+<td><code>grok --single &quot;&lt;prompt&gt;&quot; --output-format json --json-schema '&lt;schema&gt;' --max-turns 1 --disable-web-search</code></td>
+<td><code>structuredOutput</code></td>
+<td><code>usage.*</code>, <code>total_cost_usd</code></td>
+</tr>
+<tr>
+<td><code>gemini</code></td>
+<td>0.47.0</td>
+<td>Google (individual)</td>
+<td><strong>Refused:</strong> <code>IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals … migrate to Antigravity</code>.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Gotchas found:</p>
+<ul>
+<li>Codex strict mode requires <code>&quot;additionalProperties&quot;: false</code> on every object in
+the schema. The adapter sets it when converting pydantic models.</li>
+<li>Codex reads stdin unless it is redirected; the adapter passes <code>stdin=DEVNULL</code>.</li>
+<li><code>grok -p</code> is a top-level flag (<code>--single</code>), not a subcommand of <code>grok agent</code>.</li>
+<li>Each CLI ships a large coding-agent system prompt (roughly 10k–15k input tokens
+on a trivial call). Claude accepts <code>--system-prompt</code> and Grok
+<code>--system-prompt-override</code> to replace it; Codex has no override, so the role
+prompt goes in the user turn. This affects subscription quota, not dollars.</li>
+<li>Gemini via subscription is off the table with the installed CLI. Gemini needs
+<code>GEMINI_API_KEY</code> and the API adapter, or a different client.</li>
+</ul>
+<h3 id="design-change-two-provider-kinds-one-interface">Design change: two provider kinds, one interface</h3>
+<p><code>Provider.run()</code> is unchanged. Two families implement it:</p>
+<pre><code class="language-yaml">providers:
+  claude_cli: { type: cli, cli: claude }                 # subscription
+  codex_cli:  { type: cli, cli: codex }                  # subscription
+  grok_cli:   { type: cli, cli: grok }                   # subscription
+  anthropic:  { type: api, sdk: anthropic,      api_key_env: ANTHROPIC_API_KEY }
+  openai:     { type: api, sdk: openai_compat,  api_key_env: OPENAI_API_KEY }
+  xai:        { type: api, sdk: openai_compat,  api_key_env: XAI_API_KEY, base_url: https://api.x.ai/v1 }
+  gemini:     { type: api, sdk: gemini,         api_key_env: GEMINI_API_KEY }
+  ollama:     { type: api, sdk: ollama,         host: http://localhost:11434 }
+</code></pre>
+<p>CLI adapters (<code>providers/cli/{claude,codex,grok}.py</code>) build the command line,
+write the schema to a temp file where needed, run the subprocess with a timeout
+and <code>stdin=DEVNULL</code>, and parse the envelope into the same <code>Completion</code>. The
+<code>agent_calls</code> row records the exact argv, and <code>cost_usd</code> is stored as the
+CLI-reported list price with a <code>billing: subscription</code> flag so the report can
+show &quot;would have cost $X at list&quot; without claiming you paid it.</p>
+<h3 id="design-change-the-engineer-runs-as-a-real-agent-in-the-worktree">Design change: the engineer runs as a real agent in the worktree</h3>
+<p>This is the larger win. Roles that only <em>think</em> (proposer, critic, reviser,
+validator, synthesizer) run in <strong>answer mode</strong>: tools off, one turn, JSON out.
+The <strong>engineer</strong> role can instead run in <strong>agent mode</strong>: the CLI is launched
+inside the run's git worktree with its own tools enabled, exactly as you do by
+hand with <code>codex --yolo</code> or <code>claude --dangerously-skip-permissions</code>, and the
+orchestrator captures the result as a <code>git diff</code> plus a short structured
+summary.</p>
+<table>
+<thead>
+<tr>
+<th>Role mode</th>
+<th>Command shape</th>
+<th>What the orchestrator does afterward</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>answer</td>
+<td><code>claude -p … --tools &quot;&quot;</code> / <code>codex exec -s read-only</code> / <code>grok --single --max-turns 1</code></td>
+<td>validate JSON, write rows</td>
+</tr>
+<tr>
+<td>agent (engineer only)</td>
+<td><code>claude -p … --permission-mode acceptEdits --add-dir &lt;worktree&gt;</code> / <code>codex exec -C &lt;worktree&gt; -s workspace-write --full-auto</code> / <code>grok --single --cwd &lt;worktree&gt; --always-approve</code></td>
+<td><code>git add -A &amp;&amp; git diff --cached</code> in the worktree → <code>Implementation.diff</code>; run tests; the engineer never touches anything outside the worktree</td>
+</tr>
+</tbody>
+</table>
+<p>Consequences:</p>
+<ul>
+<li>The two-step &quot;FilesRequested&quot; dance from the previous addendum is no longer
+needed when the engineer is a CLI agent; it stays as the fallback for API
+providers and local models.</li>
+<li>Containment improves. Codex <code>-s workspace-write</code> uses a real macOS Seatbelt
+sandbox, and Claude Code has its own sandbox; both are stronger than my
+planned bare subprocess. The worktree is still the only writable location,
+and the original repo is untouched until a human merges.</li>
+<li>Role permissions map onto CLI flags: <code>workspace: write</code> → agent mode;
+<code>workspace: read</code> → <code>-s read-only</code> / <code>--tools &quot;&quot;</code> / <code>--disable-web-search</code>;
+<code>web: false</code> → search disabled.</li>
+<li>Budgets still apply. CLI envelopes report tokens; the orchestrator counts
+them against <code>max_tokens</code>, and subscriptions have their own rate windows,
+so <code>HALTED</code> on a CLI &quot;usage limit&quot; error is a first-class outcome.</li>
+</ul>
+<h3 id="milestone-impact">Milestone impact</h3>
+<ul>
+<li><strong>M0</strong> ships the three CLI adapters first (they need no keys) plus <code>anthropic</code>
+and <code>ollama</code> API adapters. <code>openai_compat</code> and <code>gemini</code> API adapters remain in
+M0 but are exercised only when keys exist.</li>
+<li><strong>M2</strong> engineer stage supports agent mode via CLI; answer mode stays for API
+providers.</li>
+<li>The first-milestone demo (Claude proposes, Grok critiques, Claude revises,
+Codex implements, tests run, a local model reviews, Claude synthesizes) is
+runnable today with <strong>no API keys at all</strong>: <code>claude_cli</code>, <code>grok_cli</code>,
+<code>codex_cli</code>, and <code>ollama</code>.</li>
+</ul>
+<h3 id="policy-note-on-subscription-use-from-the-claude-code-docs-checked-2026-09-25">Policy note on subscription use (from the Claude Code docs, checked 2026-09-25)</h3>
+<ul>
+<li>Headless <code>claude -p</code> and the Agent SDK use the claude.ai login when no
+<code>ANTHROPIC_API_KEY</code> is set. This is documented behaviour, not a trick.</li>
+<li>What Anthropic does not allow is third-party developers offering claude.ai
+login or its rate limits inside <em>their</em> products to <em>their</em> users. A personal
+orchestrator on your own machine, using your own login, is not that.</li>
+<li>Anthropic announced and then paused (June 2026) a plan to bill programmatic
+usage (<code>-p</code>, SDK, CI) separately at API rates. It may return with notice. The
+<code>billing: subscription</code> flag in <code>agent_calls</code> exists so that, if it does, the
+report already shows what each run would have cost at list.</li>
+<li><code>total_cost_usd</code> from the CLI is a client-side estimate, never a bill.</li>
+<li>Subscription limits are a rolling 5-hour window plus weekly caps, shared with
+your interactive use. A run that exhausts them halts with the CLI's error
+recorded as the reason and resumes later with <code>roundtable resume</code>.</li>
+</ul>
+<hr />
+<h2 id="status-log">Status log</h2>
+<h3 id="2026-09-25-m0-and-m1-shipped">2026-09-25 — M0 and M1 shipped</h3>
+<ul>
+<li><strong>M0</strong>: config, store with full DDL, provider interface, CLI adapters (claude, codex, grok on
+subscription logins), API adapters, RecordedProvider, <code>providers</code> / <code>call</code> / <code>calls</code>. All four
+live backends verified with one structured call each.</li>
+<li><strong>M1</strong>: schemas with honesty validators, prompts, context packs with <code>&lt;evidence&gt;</code> wrapping,
+budget enforcement, the PROPOSE → CRITIQUE → REVISE state machine, acceptance-criteria lock,
+scope triage (<code>needs_decomposition</code>), report, <code>run</code> / <code>runs</code> / <code>show</code>. Eight offline pipeline
+scenarios with prompt guards. 35 tests.</li>
+<li><strong>First live run</strong> (<code>run_b81e36eb75</code>): Claude proposed, Grok found three real defects in the
+acceptance criteria (a degenerate test oracle, a NaN-becomes-peak bug in the sketched control
+flow, an int-vs-float check gap), Claude fixed all three, Grok's second critique timed out at
+300 s. The synthesizer reported the halt honestly and listed P2 as unreviewed. This is the
+intended behaviour for a provider failure.</li>
+</ul>
+<p>Lessons folded in:</p>
+<ul>
+<li>Grok as critic reasons for minutes (224 s, 15.6k output tokens on one critique). Added a
+per-agent <code>effort: low|medium|high</code> (maps to <code>grok --reasoning-effort</code> and codex
+<code>model_reasoning_effort</code>) and raised the critic timeout to 600 s in the example config.</li>
+<li>The synthesizer gets exactly one call even after the budget trips. A halted run without a
+report is worse than one call over budget. If the synthesizer's own provider is the one at
+its usage limit, the fact-only report is written instead.</li>
+<li>Two adjacent decisions from the questions Kevin asked before M1: (1) &quot;solved&quot; is defined by
+four observable checks (criteria satisfied with cited evidence, tests executed and passed,
+no open blocker, synthesizer ACCEPT with disagreements listed); (2) the orchestrator, not a
+model, takes point; within a stage one role owns the output and the critic can only block.</li>
+<li>Grok with <code>--max-turns 1</code> returned an empty reply with no structured output on long critique
+prompts (three of three first attempts in run 3). With <code>max_turns: 3</code> (new <code>ProviderCfg</code>
+field) the first attempt succeeded on 1 of 2 critiques in run 4 and the repair round caught
+the other. The adapter now returns unparsed replies as a <code>Completion</code> so the audit log keeps
+what the model actually wrote; the Agent decides that it is a schema failure.</li>
+<li>Answer-mode agents mentioned their random scratch-directory path in proposals; the common
+prompt now tells them to ignore the working directory.</li>
+<li><strong>Run 4 (<code>run_05481fd76b</code>) completed the whole M1 loop</strong>: P1 → C1 REVISE (1 blocker: raising
+on non-positive equity violated requirement 1) → P2 → C2 ACCEPT → criteria AC1–AC8 locked →
+IMPLEMENT (stub) → report. Four disagreements preserved, one resolved, three flagged as
+proposer choices the requirements do not pin down. 6 calls, 12 minutes, all on subscriptions.</li>
+</ul>
+<h3 id="2026-09-25-m2-shipped">2026-09-25 — M2 shipped</h3>
+<ul>
+<li><strong>M2</strong>: <code>actions.py</code> (per-run workspace as git worktree / copy / greenfield, cache exclusion,
+path-checked writes, commit on the run branch, test runner with stripped env and timeout),
+engineer in agent mode (CLI inside the worktree) or answer mode (files as JSON), TEST / FIX /
+REVIEW stages, validator prompt and pack, report sections for implementation, tests and review,
+per-role <code>fallback</code> provider, <code>effort</code>, <code>mode</code>, <code>max_turns</code>, docs (GUIDE, CONFIG, PROVIDERS),
+landing page under <code>site/</code>. 51 tests.</li>
+<li><strong>Run 7 (<code>run_53f50047d6</code>) completed the whole pipeline live</strong>: P1 → C1 REVISE → P2 → C2 REVISE
+(blocker) → P3 → C3 REVISE → P4 → C4 ACCEPT → AC1–AC7 locked → Claude (agent mode) wrote
+dd.py + test_dd.py, commit on <code>roundtable/run_53f50047d6</code> → orchestrator ran pytest: 20 passed →
+qwen3 validator 7/7 with cited tests → synthesizer ACCEPT with two unresolved disagreements
+preserved. 12 calls, 25 minutes, all on subscriptions.</li>
+<li>C3 is the run's best moment: every fixture in the accepted criteria also passed a wrong
+(reset-on-uptick) implementation, and Grok said so. The revision added discriminating fixtures.</li>
+</ul>
+<p>Lessons:</p>
+<ul>
+<li>Codex agent mode: <code>codex exec</code> has no <code>--full-auto</code>; <code>-s workspace-write</code> alone is the sandboxed
+non-interactive mode. Codex also began returning 401 on its ChatGPT session mid-session; the
+engineer seat was pointed at Claude via <code>ROUNDTABLE_ENGINEER_PROVIDER</code>. Roles as config paid off.</li>
+<li>Grok on long prompts (revised proposals) sometimes spends 10k–17k reasoning tokens and then
+reports <code>stopReason: cancelled</code> with empty text, at any effort. Added per-role <code>fallback</code>.
+Grok also needs <code>--max-turns &gt; 1</code>. Its critiques remain the best of the three.</li>
+<li>A Codex &quot;error&quot; event followed by a reconnect is not a failure; only a turn that never
+completes is. The adapter now judges by <code>turn.completed</code>.</li>
+<li>Agents leave <code>__pycache__</code> and <code>.pytest_cache</code> in the worktree; excluded via <code>info/exclude</code>.</li>
+<li>Answer-mode agents mention their scratch cwd unless told to ignore it.</li>
+<li>A clean four-round run uses exactly 12 calls; example <code>max_calls</code> raised to 16.</li>
+</ul>
+<h3 id="2026-09-25-m3-shipped">2026-09-25 — M3 shipped</h3>
+<ul>
+<li><code>resume &lt;run_id&gt;</code>: rebuilds run state from SQLite (workspace, latest proposal and its critique,
+implementation, test result, diff) and restarts at the stage whose decision says &quot;halted:&quot;.
+A critique already recorded for the current proposal is applied, not re-run. Budget counters
+continue from recorded usage; caps can be raised on the command line.</li>
+<li>Retries with backoff (3/9/27 s) for transient <code>ProviderError</code>s; every attempt logged. Usage
+limits, missing credentials and schema failures are not retried.</li>
+<li>Cost: table price when known, else the CLI's reported estimate (<code>cost_source</code> column), so
+Claude and Grok subscription calls now carry a figure and <code>max_cost_usd</code> can bite.
+Anthropic list prices filled in from the model table (cached 2026-06-24).</li>
+<li><code>calls --role/--stage/--failed/--json</code>, <code>call-show &lt;call_id&gt;</code>.</li>
+<li>Also this session: Gemini (API key; CLI with isolated home) and Antigravity (<code>agy</code>, Google AI
+Pro login) providers, verified live. 62 tests.</li>
+</ul>
+<h3 id="2026-09-26-real-repo-trial-and-m5">2026-09-26 — real-repo trial and M5</h3>
+<ul>
+<li><strong>quantcore trial</strong> (<code>run_88acdc927f</code>): objective from the repo's own roadmap (a cost model).
+Four critique rounds, Claude engineer in a worktree, 425 tests green, validator 15/15, ACCEPT.
+Branch ready to merge. Found and fixed three bugs: relative <code>repo</code> resolved against cwd; venv
+interpreter symlink-resolved out of the venv; reviewers saw only the last round's diff. Added
+<code>resume --from STAGE</code>. Policy change: a blocker still open at the round limit now stops the
+run as <code>needs_input</code> instead of locking the criteria (the trial locked a criterion with a wrong
+expected value; the engineer handled it well, but it should not have been locked).</li>
+<li><strong>M5</strong>: <code>experiments.py</code> + <code>roundtable experiment preregister|run|interpret|list|show</code>.
+Pre-registration hashed and commit-pinned; run refuses altered or already-run experiments;
+metrics from <code>$ROUNDTABLE_METRICS</code> or a JSON stdout line; interpreter reads each criterion with
+cited evidence; decision computed by code (KILL &gt; PASS &gt; INCONCLUSIVE) and overrides logged;
+critic reviews the reading, disagreement → INCONCLUSIVE + open question. <code>domain: trading</code>
+adds proposer rules and a 15-item <code>TradingCritique</code> checklist enforced by schema. 78 tests.</li>
+</ul>
+</main></div>
+<footer><div class="wrap"><span>Roundtable · MIT licensed · built by <a href="https://kevinbrunette.com">Kevin Brunette</a></span><span><a href="https://github.com/bronette/roundtable">Source on GitHub</a> · <a href="/docs/">Docs</a></span></div></footer>
+</body>
+</html>

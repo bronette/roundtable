@@ -17,7 +17,7 @@ import paramiko
 ROOT = Path(__file__).resolve().parent.parent
 SITE = ROOT / "site"
 ENV = ROOT / "cpanel" / "sftp.env"
-SKIP = {"deploy.py", ".DS_Store"}
+SKIP = {"deploy.py", "build_docs.py", ".DS_Store"}
 SKIP_DIRS = {"__pycache__", ".git"}
 
 
