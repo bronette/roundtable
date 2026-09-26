@@ -66,6 +66,7 @@ permissions:                     # what the orchestrator will do with a role's o
 | `objective` | required | The task. Sent verbatim to every role. |
 | `requirements` | `[]` | Numbered list. The proposer must cover each with an acceptance criterion; the validator checks each. |
 | `repo` | none | Directory to work on. A git repo gets a **worktree** on a new branch `roundtable/<run_id>`; a plain directory is **copied** and given a local git repo; omitted means a **greenfield** empty workspace. The original is never modified except for the new branch ref. |
+| `context_files` | `[]` | Documents (memos, pre-registrations, specs) injected as evidence blocks into every seat's prompt except the engineer's. Paths relative to the config file. Each is capped at 20k characters. |
 | `test_command` | `python -m pytest -q` | Run by the orchestrator in the workspace with API keys stripped from the environment and a timeout. Exit code 0 means pass. pytest summary counts are parsed when present. |
 | `python` | roundtable's own interpreter | Substituted when `test_command` starts with `python` or `python3`. Point this at the target repo's venv interpreter when it has one. |
 | `test_timeout_s` | 300 | |
@@ -116,7 +117,7 @@ with neither leaves the total "partly unknown" and the cost cap is not enforced 
 | `effort` | none | `low`, `medium`, `high`. Maps to `grok --reasoning-effort` and codex `model_reasoning_effort`. Ignored elsewhere. |
 | `retries` | 2 | Extra attempts on transient provider errors (timeouts, 5xx, disconnects), with backoff of 3, 9, 27 seconds. Not applied to usage limits, missing credentials, or invalid output. |
 | `fallback` | none | Another provider key. If this seat's provider fails (invalid JSON twice, timeout, outage), the fallback answers the same prompt. The failed attempts stay in the audit log under the original provider and the report records who actually answered. |
-| `mode` | auto | Engineer only. `agent`: the CLI runs inside the worktree with tools and edits files itself. `answer`: the model returns complete files as JSON and the orchestrator writes them. Auto picks `agent` for cli providers, `answer` for api providers. |
+| `mode` | auto | `agent` (engineer only): the CLI runs inside the worktree with tools and edits files itself. `read` (any seat but the engineer): the CLI runs inside the worktree with read-only tools, so proposers and critics can inspect code and results and cite paths; Grok has no read-only mode and falls back to `answer`. `answer`: no workspace; the model works from the prompt alone (the engineer then returns files as JSON). Auto picks `agent` for a cli engineer, `answer` otherwise. |
 | `max_turns` | 40 | Agent mode: tool-use turns allowed in one engineer call. |
 
 Roles the pipeline uses: `proposer`, `critic`, `reviser`, `engineer`, `validator`, `synthesizer`.

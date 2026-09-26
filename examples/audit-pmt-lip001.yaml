@@ -1,0 +1,40 @@
+# Strategy audit: the models read the repo (read-only worktree) and argue about whether the
+# study's edge claim survives the trading checklist. Autonomy 1: no code is written.
+project:
+  name: audit-pmt-lip001
+  domain: trading
+  repo: ../../PredictionMarketTrader
+  context_files:                                   # outside the repo; injected as evidence for every seat
+    - ../../research/PMT-LIP-001_GATE.md
+    - ../../research/LIQUIDITY_SUBSIDY_LEAD_2026-09-19.md
+  objective: >
+    Audit the PMT-LIP-001 study (Kalshi Liquidity Incentive Program: earning maker rewards by
+    quoting in subsidised markets). Read the study's pre-registration, code (lip_study.py,
+    lip_universe.py, scripts/lip001_register_2026-09-21.py, scripts/run_lip001.sh), collector
+    data notes, and any results or memos in docs/ and research/. Produce an audit verdict as the
+    proposal's claim: KEEP (edge plausible and the study is measuring it correctly), KILL (the
+    mechanism cannot pay after costs and adverse selection, or the study cannot answer its own
+    question), or NEEDS_EXPERIMENT (name the single experiment that would settle it). Every
+    claim must cite a file path or a recorded number. Treat the study's own instrument checks
+    (parameter coverage, collector uptime, tape coverage) as part of the audit.
+  requirements:
+    - "The verdict cites specific files and numbers from the repository, not general knowledge about market making"
+    - "Adverse selection (pick-off) and the reward-per-period economics are quantified or explicitly marked as unmeasured"
+    - "The study's kill criterion and its sunset date are stated verbatim, and whether the analyzer that decides it is wired to run"
+    - "Acceptance criteria describe what evidence would flip the verdict"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 800000, max_cost_usd: 10.0, max_seconds: 3000 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }   # reads the repo, writes the audit
+  critic:      { provider: agy_cli,    mode: read, timeout_s: 900, max_turns: 60, model: gemini-3.1-pro-high, fallback: claude_cli }  # a second vendor verifies against the repo
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }

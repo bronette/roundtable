@@ -180,3 +180,29 @@ def test_antigravity_agent_mode_and_denied(monkeypatch, tmp_path):
     monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(empty)))
     c = antigravity.AntigravityCLI("a").run([Message("user", "U")], schema=Answer)
     assert c.parsed is None and c.raw["denied_actions"] == [{"action": "read_file"}]   # goes to the repair round
+
+
+def test_claude_read_mode_uses_plan_and_read_tools(monkeypatch, tmp_path):
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(CLAUDE_OK)))
+    claude.ClaudeCLI("c").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path), readonly=True)
+    argv = fake_run.argv
+    assert argv[argv.index("--permission-mode") + 1] == "plan"
+    tools = argv[argv.index("--allowedTools") + 1]
+    assert "Read" in tools and "Edit" not in tools and "Write" not in tools and "Bash(pytest" not in tools
+
+
+def test_codex_and_agy_read_mode(monkeypatch, tmp_path):
+    r = fake_run(0, CODEX_EVENTS); r.last = '{"answer":"a","reasoning_summary":"r","confidence":0.5}'
+    monkeypatch.setattr(common, "run_argv", r)
+    codex.CodexCLI("x").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path), readonly=True)
+    assert fake_run.argv[fake_run.argv.index("-s") + 1] == "read-only" and fake_run.argv[fake_run.argv.index("-C") + 1] == str(tmp_path)
+    from roundtable.providers.cli import antigravity
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(AGY_OK)))
+    antigravity.AntigravityCLI("a").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path), readonly=True)
+    assert fake_run.argv[fake_run.argv.index("--mode") + 1] == "plan" and "--sandbox" not in fake_run.argv
+
+
+def test_grok_read_mode_falls_back_to_answer_mode(monkeypatch, tmp_path):
+    monkeypatch.setattr(common, "run_argv", fake_run(0, json.dumps(GROK_OK)))
+    grok.GrokCLI("g").run([Message("user", "U")], schema=Answer, workspace=str(tmp_path), readonly=True)
+    assert "--always-approve" not in fake_run.argv and fake_run.argv[fake_run.argv.index("--cwd") + 1] != str(tmp_path)

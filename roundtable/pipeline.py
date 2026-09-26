@@ -176,13 +176,22 @@ class Pipeline:
     def _call(self, st: RunState, role: str, stage: Stage, prompt: str, schema, refs: list[str],
               *, prompt_file: str | None = None, workspace: str | None = None):
         agent = self.agents[role]
+        readonly = False
+        if workspace is None and agent.cfg.mode == "read" and st.ws is not None:
+            workspace, readonly = str(st.ws.path), True     # read mode: inspect the worktree, change nothing
         self.budget.check(self.store, st.run_id, provider=agent.provider.name)
         self.on_event(stage, f"{role} ← {agent.provider.name}" + (f"/{agent.cfg.model}" if agent.cfg.model else "")
-                             + (" [agent mode in worktree]" if workspace else ""))
+                             + (" [read mode in worktree]" if readonly else (" [agent mode in worktree]" if workspace else "")))
+        if readonly:
+            prompt = (f"You are inside a read-only checkout of the project (branch {st.ws.branch}). Read whatever files you need "
+                      f"to ground your answer; cite paths. You cannot change anything.\n\nFILE TREE:\n{actions.file_tree(st.ws)}\n\n" + prompt)
+        if self.cfg.project.context_files and role != "engineer":
+            prompt += "\n\nCONTEXT DOCUMENTS supplied by the operator:\n" + "\n".join(
+                context.evidence_block(name, "document", text, trust="operator") for name, text in self._context_docs())
         res = agent.call(store=self.store, run_id=st.run_id, stage=stage,
                          system=context.system_prompt(prompt_file or role, agent_mode=workspace is not None,
                                                       domain=self.cfg.project.domain),
-                         prompt=prompt, schema=schema, context_refs=refs, workspace=workspace)
+                         prompt=prompt, schema=schema, context_refs=refs, workspace=workspace, readonly=readonly)
         c = res.completion
         self.on_event(stage, f"{role} → {c.model}  {c.latency_ms} ms  in={c.usage.input_tokens} out={c.usage.output_tokens}"
                              + (" (repaired)" if res.attempts > 1 else ""))
@@ -202,9 +211,21 @@ class Pipeline:
 
     # ---- engineering stages
 
+    def _context_docs(self) -> list[tuple[str, str]]:
+        out = []
+        for f in self.cfg.project.context_files:
+            path = self.cfg.resolve_path(f)
+            try:
+                out.append((path.name, path.read_text(errors="replace")))
+            except OSError as e:
+                out.append((path.name, f"(unreadable: {e})"))
+        return out
+
     def _engineer_mode(self) -> bool:
         """True = agent mode (CLI runs inside the worktree)."""
         a = self.cfg.agents["engineer"]
+        if a.mode == "read":
+            raise ProviderError("engineer role cannot be in read mode")
         if a.mode:
             return a.mode == "agent"
         return self.cfg.providers[a.provider].type == "cli"
@@ -413,6 +434,9 @@ class Pipeline:
             extra.append(context.evidence_block(r["id"], "test-run", {k: r[k] for k in ("command", "exit_code", "passed", "failed", "errors", "timed_out")}, trust="test-runner"))
         if st.ws:
             extra.append(f"WORKSPACE: branch {st.ws.branch} ({st.ws.mode}); changed files: {', '.join(st.changed_paths) or 'none'}")
+        if p.context_files:
+            extra.append("CONTEXT DOCUMENTS supplied by the operator:\n" + "\n".join(
+                context.evidence_block(name, "document", text, trust="operator") for name, text in self._context_docs()))
         prompt = context.synthesizer_pack(p.objective, p.requirements, status=status, halt_reason=st.halt_reason,
                                           proposals=proposals, critiques=critiques, decisions=decisions,
                                           usage=self.budget.summary(self.store, st.run_id), extra_blocks=extra)

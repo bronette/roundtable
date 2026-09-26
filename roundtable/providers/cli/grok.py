@@ -29,8 +29,11 @@ class GrokCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None,
+            readonly: bool = False) -> Completion:
         system, prompt = split_messages(messages)
+        if readonly:
+            workspace = None   # grok has no read-only tool mode; fall back to answer mode
         with common.answer_dir() as tmp:
             cwd = workspace or tmp
             # max_turns > 1: grok spends a turn reasoning before it emits structured output on long

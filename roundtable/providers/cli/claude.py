@@ -18,6 +18,8 @@ from roundtable.providers.cli import common
 
 AGENT_TOOLS = ["Read", "Edit", "Write", "MultiEdit", "Glob", "Grep", "LS",
                "Bash(python:*)", "Bash(python3:*)", "Bash(pytest:*)", "Bash(uv run:*)", "Bash(ls:*)", "Bash(cat:*)"]
+READ_TOOLS = ["Read", "Glob", "Grep", "LS", "Bash(ls:*)", "Bash(cat:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git diff:*)",
+              "Bash(sqlite3:*)", "Bash(wc:*)", "Bash(head:*)", "Bash(tail:*)"]
 
 
 class ClaudeCLI:
@@ -31,10 +33,14 @@ class ClaudeCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None,
+            readonly: bool = False) -> Completion:
         system, prompt = split_messages(messages)
         argv = [self.binary, "-p", prompt, "--output-format", "json", "--no-session-persistence", "--strict-mcp-config"]
-        if workspace:
+        if workspace and readonly:
+            # read mode: inspect the worktree, change nothing (plan mode refuses edits; shell limited to read-only commands)
+            argv += ["--max-turns", str(max_turns or 40), "--permission-mode", "plan", "--allowedTools", ",".join(READ_TOOLS)]
+        elif workspace:
             # agent mode: edits auto-accepted inside the worktree; shell limited to test/python commands
             argv += ["--max-turns", str(max_turns or 40), "--permission-mode", "acceptEdits",
                      "--allowedTools", ",".join(AGENT_TOOLS)]

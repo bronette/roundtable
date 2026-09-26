@@ -409,3 +409,30 @@ def test_validator_sees_cumulative_changes_even_when_fix_round_changes_nothing(t
     }, autonomy=2, max_fix_rounds=1)
     st = pipe.run(runs_dir=tmp_path / "runs")
     assert st.status == "tests_failing" and sorted(st.changed_paths) == ["dd.py", "test_dd.py"]
+
+
+def test_read_mode_roles_get_the_worktree_readonly(tmp_path):
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL, expects_prompt_contains=["read-only checkout", "FILE TREE"])],
+        "critic": [Recording(CRIT_ACCEPT, expects_prompt_contains=["read-only checkout"])],
+        "reviser": [], "synthesizer": [Recording(SYNTH)],
+    })
+    cfg.agents["proposer"].mode = "read"; cfg.agents["critic"].mode = "read"
+    st = pipe.run(runs_dir=tmp_path / "runs")
+    assert st.status == "plan_accepted"
+    for role in ("proposer", "critic"):
+        call = pipe.agents[role].provider.calls[0]
+        assert call["workspace"] == str(st.ws.path) and call["readonly"] is True
+    assert pipe.agents["synthesizer"].provider.calls[0]["workspace"] is None
+
+
+def test_context_files_reach_every_seat_but_the_engineer(tmp_path):
+    memo = tmp_path / "GATE.md"; memo.write_text("Kill criterion: fewer than 5 durable pairs by 2026-07-30.")
+    cfg, store, pipe, _ = make_pipeline(tmp_path, {
+        "proposer": [Recording(PROPOSAL, expects_prompt_contains=["CONTEXT DOCUMENTS", "GATE.md", "durable pairs"])],
+        "critic": [Recording(CRIT_ACCEPT, expects_prompt_contains=["durable pairs"])], "reviser": [],
+        "engineer": [Recording(IMPL_ANSWER, forbids_prompt_contains=["durable pairs"])],
+        "validator": [Recording(REVIEW_OK)], "synthesizer": [Recording(SYNTH_DONE, expects_prompt_contains=["durable pairs"])],
+    }, autonomy=2)
+    cfg.project.context_files = [str(memo)]
+    assert pipe.run(runs_dir=tmp_path / "runs").status == "implemented"

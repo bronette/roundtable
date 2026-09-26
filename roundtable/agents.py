@@ -83,6 +83,7 @@ class Agent:
     def _call(
         self, *, store: Store, run_id: str, stage: str, system: str, prompt: str,
         schema: type[BaseModel] | None, context_refs: list[str] | None = None, workspace: str | None = None,
+        readonly: bool = False,
     ) -> CallResult:
         messages = [Message("system", system), Message("user", prompt)]
         refs = context_refs or []
@@ -100,7 +101,7 @@ class Agent:
                     completion = self.provider.run(
                         messages, schema=schema, temperature=self.cfg.temperature,
                         max_tokens=self.cfg.max_tokens, timeout_s=self.cfg.timeout_s, effort=self.cfg.effort,
-                        workspace=workspace, max_turns=self.cfg.max_turns)
+                        workspace=workspace, max_turns=self.cfg.max_turns, readonly=readonly)
                     if schema is not None:
                         if completion.parsed is None:
                             raise SchemaError("provider returned no JSON object")

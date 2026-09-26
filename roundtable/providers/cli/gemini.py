@@ -34,7 +34,8 @@ class GeminiCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None,
+            readonly: bool = False) -> Completion:
         system, prompt = split_messages(messages)
         parts = []
         if system:
@@ -59,7 +60,7 @@ class GeminiCLI:
                 json.dump({"security": {"auth": {"selectedType": "gemini-api-key"}}}, f)
             env["GEMINI_CLI_HOME"] = home
             cwd = workspace or tmp
-            argv = [self.binary, "-p", full_prompt, "-o", "json", "--approval-mode", "yolo" if workspace else "plan",
+            argv = [self.binary, "-p", full_prompt, "-o", "json", "--approval-mode", "yolo" if (workspace and not readonly) else "plan",
                     "-m", self.model or "gemini-flash-latest"]
             argv += self.extra_args
             rc, out, err, ms = common.run_argv(argv, cwd=cwd, env=env, timeout_s=timeout_s)

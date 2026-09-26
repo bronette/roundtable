@@ -45,6 +45,7 @@ class RecordedProvider:
         effort: str | None = None,
         workspace: str | None = None,
         max_turns: int | None = None,
+        readonly: bool = False,
     ) -> Completion:
         if self._cursor >= len(self.recordings):
             raise ProviderError(f"{self.name}: no recording for call #{self._cursor + 1}")
@@ -57,7 +58,7 @@ class RecordedProvider:
         for needle in rec.forbids_prompt_contains:
             if needle in prompt:
                 raise PromptGuardViolation(f"prompt contains forbidden {needle!r}")
-        self.calls.append({"messages": messages, "schema": schema.__name__ if schema else None, "workspace": workspace})
+        self.calls.append({"messages": messages, "schema": schema.__name__ if schema else None, "workspace": workspace, "readonly": readonly})
         if rec.side_effect is not None:
             rec.side_effect(workspace)
         if isinstance(rec.output, str):

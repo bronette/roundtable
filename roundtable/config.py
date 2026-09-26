@@ -42,6 +42,7 @@ class ProjectCfg(BaseModel):
     requirements: list[str] = []
     repo: str | None = None          # any directory or git repo; None = greenfield
     domain: str | None = None        # e.g. "trading" enables the trading critic checklist (M5)
+    context_files: list[str] = []    # documents every seat receives as evidence (memos, pre-registrations); size-capped
     test_command: str = "python -m pytest -q"
     python: str | None = None        # interpreter for `python ...` test commands; default: roundtable's own
     test_timeout_s: float = 300.0
@@ -92,7 +93,7 @@ class AgentCfg(BaseModel):
     effort: Literal["low", "medium", "high"] | None = None   # reasoning effort where the backend supports it
     retries: int = Field(default=2, ge=0)                    # extra attempts on transient provider errors (timeouts, 5xx, disconnects)
     fallback: str | None = None                              # provider to use when this one fails twice (logged; report shows who answered)
-    mode: Literal["answer", "agent"] | None = None           # engineer only; default: agent for cli providers, answer otherwise
+    mode: Literal["answer", "agent", "read"] | None = None   # agent: edits in the worktree (engineer); read: inspects it, changes nothing; answer: no workspace
     max_turns: int = 40                                      # agent mode: tool-use turns allowed per call
 
     @model_validator(mode="after")

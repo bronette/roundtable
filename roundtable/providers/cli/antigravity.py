@@ -32,8 +32,11 @@ class AntigravityCLI:
 
     def run(self, messages: list[Message], *, schema: type[BaseModel] | None = None,
             temperature: float = 0.2, max_tokens: int = 4096, timeout_s: float = 180.0,
-            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None) -> Completion:
+            effort: str | None = None, workspace: str | None = None, max_turns: int | None = None,
+            readonly: bool = False) -> Completion:
         system, prompt = split_messages(messages)
+        if not workspace or readonly:
+            pass
         if not workspace:
             # plan mode auto-denies every tool call headlessly and then returns an empty response,
             # so the model must not try to compute with a shell or read anything.
@@ -45,11 +48,14 @@ class AntigravityCLI:
             cwd = workspace or tmp
             argv = [self.binary, "--print", full_prompt, "--output-format", "json",
                     "--print-timeout", f"{max(30, int(timeout_s) - 10)}s"]
-            if workspace:
+            if workspace and readonly:
+                # read mode: plan mode inside the worktree; reads are allowed, edits and commands are not
+                argv += ["--mode", "plan", "--dangerously-skip-permissions"]
+            elif workspace:
                 # agent mode: edits and shell auto-approved inside the worktree, with agy's terminal sandbox
                 argv += ["--dangerously-skip-permissions", "--sandbox"]
             else:
-                argv += ["--mode", "plan"]   # read-only; the prompt also says not to use tools
+                argv += ["--mode", "plan"]   # answer mode; the prompt also says not to use tools
             if schema is not None:
                 argv += ["--json-schema", json.dumps(json_schema_for(schema))]
             if self.model:
