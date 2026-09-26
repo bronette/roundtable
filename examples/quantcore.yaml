@@ -1,0 +1,49 @@
+# Real-repo trial: quantcore's own roadmap asks for a cost model (commission + slippage).
+project:
+  name: quantcore-costs
+  repo: ../../quantcore                      # git repo → per-run worktree on branch roundtable/<run_id>
+  python: ../../quantcore/.venv/bin/python   # the repo's own interpreter (has pytest)
+  test_command: python -m pytest -q
+  test_timeout_s: 120
+  objective: >
+    Add a canonical transaction-cost model to quantcore as a new module quantcore/costs.py,
+    per the README roadmap ("a cost model (commission + slippage)"). It must be pure, stdlib-only,
+    deterministic and unit-tested, so every bot in the fleet can compute realistic round-trip
+    costs the same way. Do not modify any existing module or existing test.
+  requirements:
+    - "New module quantcore/costs.py only; existing modules and tests are untouched (git diff shows no changes outside quantcore/costs.py, tests/test_costs.py, and optionally a short README bullet under 'What's here')."
+    - "Zero third-party imports (stdlib only), matching pyproject's 'dependencies = []'."
+    - "A CostModel (dataclass, frozen) with: commission per unit, commission minimum per order, commission as a fraction of notional, slippage in basis points of price, and half-spread in price units; all default to zero."
+    - "Functions to compute the cost of one fill (side, price, quantity) and the round-trip cost of entering and exiting a position, returning dollars; slippage and half-spread move the effective fill price against the trader (buy fills higher, sell fills lower)."
+    - "Works for equities (fractional quantity allowed) and for contracts priced 0..1 (Kalshi-style); never returns a negative cost; invalid inputs (negative quantity, non-finite price) raise ValueError."
+    - "tests/test_costs.py covers zero-cost model, each cost component in isolation, the combined round trip with hand-computed expected values, and the error cases; the whole existing suite still passes (python -m pytest -q exits 0)."
+
+autonomy: 2
+runs_dir: ../runs
+pricing: pricing.yaml
+
+budget:
+  max_rounds: 3
+  max_fix_rounds: 1
+  max_calls: 20
+  max_tokens: 600000
+  max_cost_usd: 10.00
+  max_seconds: 2700
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+  ollama:     { type: api, sdk: ollama, host: http://localhost:11434 }
+
+agents:
+  proposer:    { provider: claude_cli }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 600, fallback: claude_cli }
+  reviser:     { provider: claude_cli }
+  engineer:    { provider: claude_cli, timeout_s: 900, max_turns: 60 }
+  validator:   { provider: ollama, model: qwen3:30b-a3b, timeout_s: 600, fallback: agy_cli }
+  synthesizer: { provider: claude_cli }
+
+permissions:
+  engineer:  { workspace: write }
+  validator: { workspace: read, run_tests: true }

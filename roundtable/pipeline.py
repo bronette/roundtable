@@ -188,8 +188,9 @@ class Pipeline:
     # ---- handlers
 
     def h_init(self, st: RunState) -> Transition:
+        repo = str(self.cfg.resolve_path(self.cfg.project.repo)) if self.cfg.project.repo else None
         try:
-            st.ws = actions.prepare_workspace(st.run_dir, self.cfg.project.repo, st.run_id)
+            st.ws = actions.prepare_workspace(st.run_dir, repo, st.run_id)
         except actions.WorkspaceError as e:
             raise ProviderError(f"workspace: {e}") from e
         self.store.set_ws(st.run_id, {"path": str(st.ws.path), "branch": st.ws.branch, "base_commit": st.ws.base_commit,
@@ -251,7 +252,8 @@ class Pipeline:
     def h_test(self, st: RunState) -> Transition:
         p, ws = self.cfg.project, st.ws
         assert ws and st.impl_id
-        result = actions.run_tests(ws, p.test_command, python=p.python, timeout_s=p.test_timeout_s)
+        python = str(self.cfg.resolve_path(p.python)) if p.python else None
+        result = actions.run_tests(ws, p.test_command, python=python, timeout_s=p.test_timeout_s)
         art = self.store.add_artifact(st.run_id, call_id=None, kind="test_output", name=f"test{st.fix_round}.txt",
                                       content=result.stdout_tail, artifacts_dir=st.run_dir / "artifacts")
         st.test_id = self.store.add_test_run(st.run_id, implementation_id=st.impl_id, result=result.model_dump(), output_artifact_id=art)
@@ -405,6 +407,8 @@ class Pipeline:
         synth = self.agents.get("synthesizer")
         if synth is None:
             synth_error = "no synthesizer configured"
+        elif not self.store.calls(st.run_id):
+            synth_error = "halted before any model call; nothing to synthesize"
         elif st.status == "halted_usage_limit" and synth.provider.name == self._last_failed_provider(st):
             synth_error = f"provider {synth.provider.name} is at its usage limit"
         if synth_error is None:
