@@ -1,0 +1,48 @@
+# Structural edge hunt. No repo, no code: the seats receive the operator's research corpus as
+# evidence and must produce pre-registration drafts that pass the hypothesis gate. Advice level.
+project:
+  name: hunt-structural-edges
+  domain: trading
+  context_files:
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../../research/NULL_RESULTS.md
+    - ../../research/ADVERSARIAL_FLEET_AUDIT_2026-09-21.md
+    - ../../research/EXECUTABLE_EDGE_VERDICT_2026-09-18.md
+    - ../../research/KALSHI_STRATEGY_RESEARCH_2026-09-18.md
+    - ../../research/EDGE_HUNT_2026-09-16.md
+    - ../../research/LIQUIDITY_SUBSIDY_LEAD_2026-09-19.md
+    - ../../research/PMT-FC-001_FEE_RULE_CHANGE_GATE.md
+    - ../../research/RESEARCH_RESET_2026-08-15.md
+  objective: >
+    Propose a slate of at most six candidate edges for a solo retail operator with existing
+    Kalshi, Polymarket, US sports-exchange, equities and options access, across prediction
+    markets, sports exchanges and listed markets, that are STRUCTURAL: someone pays you to
+    participate (subsidies, rebates, maker programs), rules or fees change faster than
+    participants adjust, settlement or launch mechanics create bounded mispricings, or a
+    regulatory or access constraint keeps institutions out. Every candidate must answer the
+    gate's questions: the inefficiency, why it persists, why this operator can capture it,
+    a pre-registered kill criterion with sample size and threshold, the search budget
+    (n_trials), the execution model, the benchmark, and what data must be collected first and
+    for how long. Exclude everything in NULL_RESULTS.md and the gate's automatic-reject list,
+    and any variant of a killed lane without a new mechanism. Rank the slate by expected
+    dollars per month at realistic capacity, and say plainly which candidates you expect to be
+    killed and why. Nothing here is a registration; the output is drafts for the operator.
+  requirements:
+    - "Each candidate answers all seven gate questions plus data-collection needs, in the exact one-pager fields"
+    - "Each candidate cites the corpus evidence that motivates it and the evidence that could already kill it"
+    - "No candidate is a technical-indicator, momentum, mean-reversion or calibration-model strategy on public OHLC or public forecasts"
+    - "Capacity and expected monthly dollars are estimated with the arithmetic shown, at the operator's account scale"
+    - "Acceptance criteria state what a critic would need to see to reject each candidate"
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 10, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+agents:
+  proposer:    { provider: claude_cli, timeout_s: 900 }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
+  reviser:     { provider: claude_cli, timeout_s: 900 }
+  synthesizer: { provider: agy_cli, model: gemini-3.1-pro-high, timeout_s: 900, fallback: claude_cli }
