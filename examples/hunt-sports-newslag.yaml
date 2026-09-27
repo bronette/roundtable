@@ -18,7 +18,9 @@ project:
     that already exists: SportsBetter's timestamped odds_snapshots (11 books; check which and at
     what cadence), any ProphetX depth or price tables, and the Kalshi L2 tape and market data in
     /Users/kevinbrunette/code-projects/PredictionMarketTrader/data (kalshi_l2.db, kalshi_l2_meta.db,
-    archive parquet; read-only, cite exact tables and row counts). Define a sharp move (e.g. >= 3
+    archive parquet; read-only, cite exact tables and row counts). OFF LIMITS: do not open or query
+    SportsBetter's ProphetX depth ladders (data/prophetx_depth.db and any depth_levels table); they are
+    blinded data under the SB-004 pre-registration. Use only price snapshots for ProphetX. Define a sharp move (e.g. >= 3
     points of implied probability within 15 minutes), count how many occur per week in the
     captured sports, and for each, measure the venue's price path afterwards where the data allows.
     If the existing data cannot align venue and reference timestamps, say so precisely and specify
