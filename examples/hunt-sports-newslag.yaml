@@ -18,7 +18,9 @@ project:
     that already exists: SportsBetter's timestamped odds_snapshots (11 books; check which and at
     what cadence), any ProphetX depth or price tables, and the Kalshi L2 tape and market data in
     /Users/kevinbrunette/code-projects/PredictionMarketTrader/data (kalshi_l2.db, kalshi_l2_meta.db,
-    archive parquet; read-only, cite exact tables and row counts). OFF LIMITS: do not open or query
+    archive parquet; read-only, cite exact tables and row counts). The L2 tape is ~159M rows per
+    day: do NOT scan it in full; use kalshi_l2_meta.db, table row counts, and at most one sampled
+    day or a LIMITed query, and budget your reading to finish well inside 25 minutes. OFF LIMITS: do not open or query
     SportsBetter's ProphetX depth ladders (data/prophetx_depth.db and any depth_levels table); they are
     blinded data under the SB-004 pre-registration. Use only price snapshots for ProphetX. Define a sharp move (e.g. >= 3
     points of implied probability within 15 minutes), count how many occur per week in the
@@ -43,7 +45,7 @@ providers:
   grok_cli:   { type: cli, cli: grok }
   agy_cli:    { type: cli, cli: agy }
 agents:
-  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 80 }
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 80 }
   critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
   reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
   synthesizer: { provider: claude_cli }
