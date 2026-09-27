@@ -238,6 +238,16 @@ runs/<project>/
 ```
 
 
+## Audits and blinded data
+
+`read_in_place: true` gives read-mode seats the whole live checkout, including ignored data,
+logs and reports. That is what makes an audit accurate, and it is also a hazard: a proposer that
+opens a dataset a pre-registration declared unread has peeked on the operator's behalf, and that
+registration can no longer be run clean. Before an in-place run on a repo that holds blinded
+data, name the off-limits paths in the objective ("OFF LIMITS: do not open data/x.db"), or run in
+worktree mode, where ignored files are absent. This was learned the hard way on 2026-09-26, when a
+sports hunt sized a maker margin from ProphetX depth ladders that SB-004 had declared unread.
+
 ## Experiments (pre-registered)
 
 For research questions, especially trading, the unit of work is an experiment whose criteria
