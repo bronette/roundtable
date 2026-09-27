@@ -1,0 +1,47 @@
+# Sports hunt 2: do the legal venues lag sharp-line moves (injury/lineup news, steam), and is the
+# lag capturable after fees? Measurement-first: size it from existing timestamped snapshots.
+project:
+  name: hunt-sports-newslag
+  domain: trading
+  repo: ../../SportsBetter
+  read_in_place: true
+  context_files:
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../../research/NULL_RESULTS.md
+    - ../../research/KALSHI_STRATEGY_RESEARCH_2026-09-18.md
+    - ../../research/EXECUTABLE_EDGE_VERDICT_2026-09-18.md
+  objective: >
+    One question: when a sharp reference (Pinnacle or a devigged consensus of the books captured
+    in odds_snapshots) moves materially on a game (lineup/injury news, steam), how long do the
+    operator's legal venues (Kalshi sports contracts, ProphetX, Novig) take to adjust, and is the
+    interval capturable after fees by a retail taker in Idaho? Do the measurement first from data
+    that already exists: SportsBetter's timestamped odds_snapshots (11 books; check which and at
+    what cadence), any ProphetX depth or price tables, and the Kalshi L2 tape and market data in
+    /Users/kevinbrunette/code-projects/PredictionMarketTrader/data (kalshi_l2.db, kalshi_l2_meta.db,
+    archive parquet; read-only, cite exact tables and row counts). Define a sharp move (e.g. >= 3
+    points of implied probability within 15 minutes), count how many occur per week in the
+    captured sports, and for each, measure the venue's price path afterwards where the data allows.
+    If the existing data cannot align venue and reference timestamps, say so precisely and specify
+    the 30-day collection that would. Produce one pre-registration draft answering the gate's seven
+    questions with a kill criterion, fee model (Kalshi 0.07 x p(1-p) taker; ProphetX/Novig cited or
+    [UNVERIFIED]), the capturable-edge arithmetic at 40/55/70 cents, detectability (settled bets
+    needed), and say which outcome you expect and why. Offshore books and VPN access are excluded.
+  requirements:
+    - "Every factual claim about existing data cites a file, table or query result; venue facts not in the data are [UNVERIFIED]"
+    - "The sharp-move definition, the lag measurement and the capture arithmetic are stated precisely enough to be reproduced by a script"
+    - "The draft answers the seven gate questions plus instrument check, data needed and duration"
+    - "Detectability is computed: settled bets needed at the venue fee level to distinguish the expected edge from zero"
+    - "Acceptance criteria state what a critic would need to see to reject the draft"
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 10, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 80 }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }
