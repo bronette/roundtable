@@ -1,0 +1,49 @@
+# Focused sports hunt: is there a fillable, fee-surviving discrepancy between the legal venues
+# (Kalshi sports contracts, ProphetX, Novig) and a sharp reference? Advice level, reads SportsBetter
+# in place; Kalshi research and the SB-004 draft supplied as evidence.
+project:
+  name: hunt-sports-reference
+  domain: trading
+  repo: ../../SportsBetter
+  read_in_place: true
+  context_files:
+    - ../../research/HYPOTHESIS_GATE.md
+    - ../../research/NULL_RESULTS.md
+    - ../../research/SB004_PREREG_DRAFT_2026-07-22.md
+    - ../../research/KALSHI_STRATEGY_RESEARCH_2026-09-18.md
+    - ../../research/EXECUTABLE_EDGE_VERDICT_2026-09-18.md
+    - ../runs/audit-sportsbetter/run_aedaad098b/report.md
+  objective: >
+    One question: for a retail operator in Idaho whose legal sports venues are Kalshi sports event
+    contracts, ProphetX and Novig (no sportsbooks; offshore books and VPN access are excluded),
+    is there a measurable, fillable discrepancy between those venues' prices and a sharp
+    reference (Pinnacle or a devigged multi-book consensus via The Odds API, which the operator
+    already licenses) that survives venue fees, and what 30-day forward collection would prove or
+    kill it? Consider both taker (buy the side the venue underprices vs the reference) and maker
+    (SB-004 exchange maker margin) framings. Use the repository's odds_snapshots, bets and
+    ProphetX depth data to say what is already known: which books are captured, whether Pinnacle
+    is present, how stale the closes are, what the existing CLV numbers say. Produce at most two
+    pre-registration drafts that answer the gate's seven questions with a kill criterion, sample
+    size, fee model (Kalshi fee = 0.07 x p(1-p) taker / 0.0175 maker per contract; ProphetX and
+    Novig fee schedules must be cited or marked unverified), execution model and benchmark
+    (the sharp no-vig line itself). State plainly the expected ROI range after fees and the number
+    of settled bets needed to detect it, and which draft you expect to be killed.
+  requirements:
+    - "Every factual claim about existing data cites a file, table or query result from the repository; unverified venue facts (fee schedules, eligibility, limits) are marked [UNVERIFIED]"
+    - "Each draft answers the seven gate questions plus instrument check, data needed and duration, in the one-pager fields"
+    - "Fee arithmetic is shown for a representative contract at 40, 55 and 70 cents, taker and maker"
+    - "Detectability: the settled-bet count needed to distinguish the expected edge from zero at the venue's fee level is computed and shown"
+    - "Acceptance criteria state what a critic would need to see to reject each draft"
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 10, max_tokens: 900000, max_cost_usd: 12.0, max_seconds: 3600 }
+providers:
+  claude_cli: { type: cli, cli: claude }
+  grok_cli:   { type: cli, cli: grok }
+  agy_cli:    { type: cli, cli: agy }
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 80 }
+  critic:      { provider: grok_cli, effort: medium, timeout_s: 900, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 900, max_turns: 60 }
+  synthesizer: { provider: claude_cli }
