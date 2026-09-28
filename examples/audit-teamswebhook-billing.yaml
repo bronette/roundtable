@@ -1,0 +1,82 @@
+# TeamsWebHook pre-launch audit, lane 3 of 4 (billing). One of four lane configs
+# (audit-teamswebhook-backend, -security, -billing, -store) that divide the operator's brief
+# by specialty, with a different vendor pairing in each. Read-only, autonomy 1: nothing is written.
+# Worktree mode on purpose (no read_in_place): the live checkout holds a real .env, and a
+# worktree contains tracked files only, so no secret reaches a vendor.
+project:
+  name: audit-teamswebhook-billing
+  repo: ../../TeamsWebHook
+  context_files:
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/brief.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/baseline.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-pricing.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-terms.txt
+  objective: >
+    Lane 3 of 4: billing and the customer lifecycle. Pre-launch audit of TeamsWebHook for release to paying customers and
+    submission to the Microsoft Teams Store. This lane owns brief sections 2 (the lifecycle from trial to deletion), 6, 9 (deletion and orphaned records) and 16 (the billing actions).
+    Act as a SaaS billing auditor. Billing defects are P0 or P1. Trace the whole lifecycle in the
+    code: install and first use on the Free plan, checkout session creation, the Stripe webhook
+    handler (signature verification, event types handled and ignored, idempotency on redelivery,
+    behaviour on out-of-order and delayed events), how plan state is stored per tenant and which
+    record is the source of truth, how plan limits and Pro-only features (subscription count,
+    routing, incident mode, on-call DMs, approvals) are enforced on the server at the moment of
+    use rather than in the admin UI, what happens on payment failure, card expiry, cancellation at
+    period end versus immediately, reactivation, refund, dispute, and downgrade with more
+    subscriptions than Free allows, how a second checkout for an already-paying tenant is
+    prevented, the customer portal path, tenant deletion and the operator purge (what happens to
+    the Stripe subscription when the tenant's data is deleted, and to the data when the
+    subscription ends), and reconciliation between Stripe and the store. Compare what the pricing
+    page, terms and store listing promise (site-pricing.txt, site-terms.txt, docs/store-listing.md)
+    with what the code enforces. Name every path by which a customer is charged twice, pays and
+    gets nothing, gets Pro without paying, or cannot cancel.
+    The operator's full brief is the context document brief.md; its sections are numbered and this
+    lane owns the sections named above, but follow evidence anywhere in the repository. "App Store"
+    in the brief means the Microsoft Teams Store (Partner Center validation), not Apple's.
+    The product is "Per My Last Webhook": Azure Functions (TypeScript) API in src/, a React admin
+    UI in admin-ui/, Bicep in infra/, the Teams app package in teamsApp/, Stripe billing, Cosmos DB.
+    You are read-only and cannot run the test suite; baseline.md records the real results of the
+    suite, lint, typecheck, npm audit and the validators, run today on this commit. Do not claim a
+    test result that is not in baseline.md. Earlier audits and their responses are in docs/audits/.
+    Do not repeat an earlier finding as open because an old audit says so, and do not accept one as
+    fixed because a response says so: open the code and say what it does now. Documentation is a
+    claim to be checked against the implementation, never evidence of behaviour.
+    HOW TO ANSWER IN THE SCHEMA. `scope` is single_task: this lane is one read-only audit with
+    one deliverable, the findings list, so do not decompose it. `claim` is this lane's release-gate verdict in one sentence:
+    NO-GO, GO-AFTER-FIXES or GO, with the count of findings at each severity. `evidence` holds the
+    findings, one entry per finding, each in exactly this form on one line:
+    "TW-B-NN | P0-P3 | Category | Location (file:line, function, endpoint) | Problem | Evidence
+    (what the code does, quoted or cited by line) | Customer impact | Reproduction | Recommended fix
+    | Required test | Confidence High/Medium/Low". Order them by severity. `assumptions` holds the
+    Unknowns: everything you could not verify, each stated as unverified and never as safe.
+    `risks` holds interactions between findings and the things most likely to be wrong in your own
+    audit. `approach` says which files and paths you actually traced, in at most 300 words.
+    Severity follows the brief's definitions exactly; do not inflate it, and do not report a style
+    preference as a defect. A finding without a file path and a line or quoted code is not a finding.
+    Report what is sound as well as what is broken only where a requirement asks for a positive
+    statement; otherwise spend the words on defects.
+  requirements:
+    - "The source of truth for a tenant's plan is identified, and every Stripe event type the handler acts on is listed with the state change it makes and whether redelivery or reordering of that event corrupts state, citing the lines"
+    - "Every Pro-only feature and plan limit named on the pricing page is mapped to the server-side line that enforces it, or reported as unenforced"
+    - "Each of double charge, paid without access, access without payment, cancellation that does not cancel, and downgrade that leaves Pro features on is answered possible, not possible or unverified, with the code path cited"
+    - "Tenant deletion and operator purge are traced for what they do to the Stripe customer and subscription and what records they leave behind"
+    - "Each promise about price, trial, refund and cancellation in site-pricing.txt, site-terms.txt and docs/store-listing.md is checked against the implementation"
+    - "Every finding cites a file path with a line number or quoted code from this repository (or a named context document), and states what the implementation does, not what the documentation says"
+    - "Every finding carries all eleven fields in the fixed one-line form, with a severity that matches the brief's P0-P3 definitions"
+    - "Every P0 and P1 finding has an acceptance criterion naming the concrete check that would confirm or refute it: a test to write with its expected failure, or a command and its expected output"
+    - "Everything that could not be verified from the repository is listed as an Unknown in assumptions and is not treated as safe"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 8000000, max_cost_usd: 40.0, max_seconds: 10800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  codex_cli:  { type: cli, cli: codex }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  critic:      { provider: agy_cli, mode: read, timeout_s: 1800, max_turns: 120, model: gemini-3.1-pro-high, fallback: codex_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  synthesizer: { provider: claude_cli, timeout_s: 900, fallback: codex_cli }

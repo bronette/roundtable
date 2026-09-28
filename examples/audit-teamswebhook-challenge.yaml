@@ -1,0 +1,62 @@
+# TeamsWebHook pre-launch audit, cross-check. The four lane runs (audit-teamswebhook-backend,
+# -security, -billing, -store) produced audits longer than the 20,000 characters a critic is
+# shown, so the critics challenged only the first five to seven findings of each lane. This run
+# gives the P2 findings no second vendor saw to Codex, which verifies each against the code, and
+# to Gemini, which checks Codex. Autonomy 0: one verification, one critique, the report.
+# Worktree mode on purpose (no read_in_place): the live checkout holds a real .env.
+project:
+  name: audit-teamswebhook-challenge
+  repo: ../../TeamsWebHook
+  context_files:
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/challenge-findings-1.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/challenge-findings-2.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/baseline.md
+  objective: >
+    Cross-check of a pre-launch audit of TeamsWebHook ("Per My Last Webhook": Azure Functions
+    TypeScript API in src/, React admin UI in admin-ui/, Bicep in infra/, Teams app package in
+    teamsApp/, Stripe billing, Cosmos DB). The context documents challenge-findings-1.md and
+    challenge-findings-2.md hold 18 findings written by other models. No second model has checked
+    them. Your job is to try to disprove each one from the code. For every finding, open the files
+    and lines it cites and the code around them, and decide: CONFIRMED (the code does what the
+    finding says and the stated impact follows), PARTLY (the code fact is right but the impact,
+    trigger or severity is overstated or understated; say how), REFUTED (the code does not do what
+    the finding says, or another guard the finding missed prevents the impact; cite that guard),
+    or UNVERIFIED (it depends on something outside the repository; say what). A wrong line number
+    alone is not a refutation: find the right line and say so. You are read-only and cannot run
+    the test suite; baseline.md records the real test, lint, typecheck and npm audit results for
+    this commit, and you must not claim any other test result. Documentation and code comments are
+    claims, not evidence of behaviour.
+    HOW TO ANSWER IN THE SCHEMA. `scope` is single_task: this is one read-only verification with
+    one deliverable, so do not decompose it. `evidence` holds exactly one entry per finding, 18
+    entries, in the order given, each on one line and no longer than 600 characters, in exactly
+    this form: "ID | CONFIRMED, PARTLY, REFUTED or UNVERIFIED | severity the code supports, P0 to
+    P3, by these definitions: P0 security compromise, cross-tenant access, data loss or
+    catastrophic billing error; P1 major workflow broken, meaningful security weakness, billing
+    problem, serious reliability issue or likely Store rejection; P2 real issue that does not
+    block launch; P3 low risk | what the code shows, with file:line and a short quote | what the
+    finding got wrong, or 'nothing'". `claim` is one sentence giving the count of each verdict
+    and naming any finding whose severity should rise to P1 or P0. `assumptions` lists what you
+    could not verify. `risks` lists interactions between findings that make either worse.
+    `approach` names the files you opened, in at most 200 words. Keep the whole answer under
+    18,000 characters; the reviewer is shown no more than that.
+  requirements:
+    - "Each of the 18 findings has exactly one evidence entry carrying its ID, one of the four verdicts, a severity, and a file:line with quoted code from this repository"
+    - "Every REFUTED verdict cites the guard or code path that prevents the impact, and every PARTLY verdict states what is overstated or understated"
+    - "Every severity given follows the P0 to P3 definitions in the objective, and any change from the finding's own severity is justified in the entry"
+    - "Nothing that depends on live configuration, Stripe settings, Teams client behaviour or the deployed site is reported as CONFIRMED; it is UNVERIFIED with the missing fact named"
+
+autonomy: 0
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 1, max_calls: 8, max_tokens: 6000000, max_cost_usd: 25.0, max_seconds: 5400 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  codex_cli:  { type: cli, cli: codex }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: codex_cli, mode: read, effort: high, timeout_s: 1800, max_turns: 120, fallback: agy_cli }
+  critic:      { provider: agy_cli, mode: read, timeout_s: 1800, max_turns: 120, model: gemini-3.1-pro-high, fallback: claude_cli }
+  reviser:     { provider: codex_cli, mode: read, effort: high, timeout_s: 1800, max_turns: 120, fallback: agy_cli }
+  synthesizer: { provider: claude_cli, timeout_s: 900, fallback: codex_cli }

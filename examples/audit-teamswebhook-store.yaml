@@ -1,0 +1,95 @@
+# TeamsWebHook pre-launch audit, lane 4 of 4 (store). One of four lane configs
+# (audit-teamswebhook-backend, -security, -billing, -store) that divide the operator's brief
+# by specialty, with a different vendor pairing in each. Read-only, autonomy 1: nothing is written.
+# Worktree mode on purpose (no read_in_place): the live checkout holds a real .env, and a
+# worktree contains tracked files only, so no secret reaches a vendor.
+project:
+  name: audit-teamswebhook-store
+  repo: ../../TeamsWebHook
+  context_files:
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/brief.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/baseline.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-home.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-pricing.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-privacy.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-terms.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-getting-started.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-admin-consent.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-test-instructions.txt
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/site-faq.txt
+  objective: >
+    Lane 4 of 4: QA, first-run experience, tests, Teams Store submission. Pre-launch audit of TeamsWebHook for release to paying customers and
+    submission to the Microsoft Teams Store. This lane owns brief sections 2 (visitor to first successful webhook), 10, 15 and 16.
+    Act as a QA lead, a first-time customer and a Microsoft Teams Store validation reviewer. Walk
+    the journey a stranger takes: website, install or admin consent, first sign-in to the admin UI
+    (admin-ui/src/), creating the first subscription, sending the first webhook, seeing the first
+    card, then upgrade, settings changes, removal of the app. At each step name the dead ends:
+    consent denied or granted by a non-admin, a user without the admin role, the bot not installed
+    in the chosen team, an expired session, a double click, a refresh mid-operation, two tabs,
+    missing loading, empty and error states, error text that exposes internals, and keyboard and
+    screen-reader access. Read the admin UI source for these; you cannot run it. Audit the tests
+    for whether the important workflows are protected and for tests that pass without asserting
+    behaviour; baseline.md lists what coverage excludes. For the Store: check teamsApp/manifest.json
+    and the packaging scripts against current Microsoft Teams Store validation guidelines (valid
+    domains, permissions and RSC scopes justified by features, bot commands that respond, SSO
+    declarations, icons, descriptions, privacy and terms URLs, support contact, no placeholder
+    content), check docs/store-listing.md, docs/store-submission.md, docs/submission-readiness.md
+    and docs/store-test-notes.md for claims the app does not implement, and check that reviewer
+    test instructions can be followed by someone with no prior access. The site-*.txt context
+    documents are text extractions of the public website's source, which lives in a separate
+    repository; `{{NAME}}` tokens in them are template placeholders that a deploy script is meant
+    to fill, so treat one as a finding only with evidence it ships unfilled. Compare the published
+    privacy policy and terms (site-privacy.txt, site-terms.txt) with docs/legal/ and with what the
+    code collects, stores, logs and deletes. Separate definite Store problems from items that need
+    confirmation against the current Microsoft rules, and put the latter in assumptions.
+    The operator's full brief is the context document brief.md; its sections are numbered and this
+    lane owns the sections named above, but follow evidence anywhere in the repository. "App Store"
+    in the brief means the Microsoft Teams Store (Partner Center validation), not Apple's.
+    The product is "Per My Last Webhook": Azure Functions (TypeScript) API in src/, a React admin
+    UI in admin-ui/, Bicep in infra/, the Teams app package in teamsApp/, Stripe billing, Cosmos DB.
+    You are read-only and cannot run the test suite; baseline.md records the real results of the
+    suite, lint, typecheck, npm audit and the validators, run today on this commit. Do not claim a
+    test result that is not in baseline.md. Earlier audits and their responses are in docs/audits/.
+    Do not repeat an earlier finding as open because an old audit says so, and do not accept one as
+    fixed because a response says so: open the code and say what it does now. Documentation is a
+    claim to be checked against the implementation, never evidence of behaviour.
+    HOW TO ANSWER IN THE SCHEMA. `scope` is single_task: this lane is one read-only audit with
+    one deliverable, the findings list, so do not decompose it. `claim` is this lane's release-gate verdict in one sentence:
+    NO-GO, GO-AFTER-FIXES or GO, with the count of findings at each severity. `evidence` holds the
+    findings, one entry per finding, each in exactly this form on one line:
+    "TW-Q-NN | P0-P3 | Category | Location (file:line, function, endpoint) | Problem | Evidence
+    (what the code does, quoted or cited by line) | Customer impact | Reproduction | Recommended fix
+    | Required test | Confidence High/Medium/Low". Order them by severity. `assumptions` holds the
+    Unknowns: everything you could not verify, each stated as unverified and never as safe.
+    `risks` holds interactions between findings and the things most likely to be wrong in your own
+    audit. `approach` says which files and paths you actually traced, in at most 300 words.
+    Severity follows the brief's definitions exactly; do not inflate it, and do not report a style
+    preference as a defect. A finding without a file path and a line or quoted code is not a finding.
+    Report what is sound as well as what is broken only where a requirement asks for a positive
+    statement; otherwise spend the words on defects.
+  requirements:
+    - "Each stage from visitor to first delivered card is walked, and each failure a new customer can hit is reported with the component or handler that produces it"
+    - "Each of these workflows is classified as protected by a meaningful test, covered only by a test that does not assert behaviour, or untested, naming the test file: install/consent, sign-in and role check, subscription create/replace/delete, webhook delivery, failed delivery, duplicate delivery, checkout, Stripe webhook, cancellation, tenant isolation, tenant deletion, and the admin UI"
+    - "teamsApp/manifest.json is checked field by field against Teams Store validation requirements, and each permission or scope it requests is matched to the feature that needs it"
+    - "Every feature claimed in docs/store-listing.md and on the website home and pricing pages is matched to the code that implements it, or reported as unimplemented"
+    - "The published privacy policy and terms are compared with docs/legal/ and with what the code actually collects, retains and deletes, including what happens to a tenant's data on uninstall"
+    - "Every finding cites a file path with a line number or quoted code from this repository (or a named context document), and states what the implementation does, not what the documentation says"
+    - "Every finding carries all eleven fields in the fixed one-line form, with a severity that matches the brief's P0-P3 definitions"
+    - "Every P0 and P1 finding has an acceptance criterion naming the concrete check that would confirm or refute it: a test to write with its expected failure, or a command and its expected output"
+    - "Everything that could not be verified from the repository is listed as an Unknown in assumptions and is not treated as safe"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 8000000, max_cost_usd: 40.0, max_seconds: 10800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  codex_cli:  { type: cli, cli: codex }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: agy_cli, mode: read, timeout_s: 1800, max_turns: 120, model: gemini-3.1-pro-high, fallback: claude_cli }
+  critic:      { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  reviser:     { provider: agy_cli, mode: read, timeout_s: 1800, max_turns: 120, model: gemini-3.1-pro-high, fallback: claude_cli }
+  synthesizer: { provider: claude_cli, timeout_s: 900, fallback: codex_cli }
