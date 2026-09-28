@@ -1,0 +1,79 @@
+# TeamsWebHook pre-launch audit, lane 2 of 4 (security). One of four lane configs
+# (audit-teamswebhook-backend, -security, -billing, -store) that divide the operator's brief
+# by specialty, with a different vendor pairing in each. Read-only, autonomy 1: nothing is written.
+# Worktree mode on purpose (no read_in_place): the live checkout holds a real .env, and a
+# worktree contains tracked files only, so no secret reaches a vendor.
+project:
+  name: audit-teamswebhook-security
+  repo: ../../TeamsWebHook
+  context_files:
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/brief.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/baseline.md
+  objective: >
+    Lane 2 of 4: security, tenant isolation, webhook attack surface, abuse. Pre-launch audit of TeamsWebHook for release to paying customers and
+    submission to the Microsoft Teams Store. This lane owns brief sections 4, 5 (the security half), 7, 8, 12 and 14.
+    Act as an attacker who has created one ordinary tenant and wants another tenant's data, free
+    paid features, or the operator's secrets. Work from the code: how Entra ID bearer tokens are
+    validated (issuer, audience, signature, tenant, roles), how the admin-consent install flow
+    binds state and nonce, how the Bot Framework endpoint authenticates its caller, how inbound
+    webhook URLs and signing secrets authenticate a sender and whether a captured request can be
+    replayed, how every data access in src/data/ is scoped to the caller's tenant (partition key
+    and query predicates, all the way to the Cosmos call), whether any identifier from the URL,
+    body or a card action is trusted without an ownership check, whether any URL the customer
+    supplies is fetched by the server (SSRF), whether customer-controlled text reaches an Adaptive
+    Card template, a log line, an HTML response or the admin UI unescaped, how secrets are stored,
+    sealed, rotated and logged, what the operator-only endpoints and scripts can do and what guards
+    them, and what rate limits, quotas and size limits stop one hostile tenant from exhausting the
+    service or running up the operator's Azure bill. Inspect how each flagged dependency in
+    baseline.md is actually used before calling it exploitable or harmless. Search the git
+    history for committed secrets with git log and say what you searched for.
+    The operator's full brief is the context document brief.md; its sections are numbered and this
+    lane owns the sections named above, but follow evidence anywhere in the repository. "App Store"
+    in the brief means the Microsoft Teams Store (Partner Center validation), not Apple's.
+    The product is "Per My Last Webhook": Azure Functions (TypeScript) API in src/, a React admin
+    UI in admin-ui/, Bicep in infra/, the Teams app package in teamsApp/, Stripe billing, Cosmos DB.
+    You are read-only and cannot run the test suite; baseline.md records the real results of the
+    suite, lint, typecheck, npm audit and the validators, run today on this commit. Do not claim a
+    test result that is not in baseline.md. Earlier audits and their responses are in docs/audits/.
+    Do not repeat an earlier finding as open because an old audit says so, and do not accept one as
+    fixed because a response says so: open the code and say what it does now. Documentation is a
+    claim to be checked against the implementation, never evidence of behaviour.
+    HOW TO ANSWER IN THE SCHEMA. `scope` is single_task: this lane is one read-only audit with
+    one deliverable, the findings list, so do not decompose it. `claim` is this lane's release-gate verdict in one sentence:
+    NO-GO, GO-AFTER-FIXES or GO, with the count of findings at each severity. `evidence` holds the
+    findings, one entry per finding, each in exactly this form on one line:
+    "TW-S-NN | P0-P3 | Category | Location (file:line, function, endpoint) | Problem | Evidence
+    (what the code does, quoted or cited by line) | Customer impact | Reproduction | Recommended fix
+    | Required test | Confidence High/Medium/Low". Order them by severity. `assumptions` holds the
+    Unknowns: everything you could not verify, each stated as unverified and never as safe.
+    `risks` holds interactions between findings and the things most likely to be wrong in your own
+    audit. `approach` says which files and paths you actually traced, in at most 300 words.
+    Severity follows the brief's definitions exactly; do not inflate it, and do not report a style
+    preference as a defect. A finding without a file path and a line or quoted code is not a finding.
+    Report what is sound as well as what is broken only where a requirement asks for a positive
+    statement; otherwise spend the words on defects.
+  requirements:
+    - "For CUSTOMER_A against CUSTOMER_B, each of read, modify, trigger, configuration, billing and cached data is answered yes, no or unverified, with the ownership check cited at the data-access line"
+    - "Every endpoint that accepts unauthenticated or webhook-secret-authenticated traffic is listed with its authentication, replay protection, payload size limit and rate limit, citing the code"
+    - "Token validation, the consent/install state and nonce handling, and the Bot Framework caller check are each traced and either a defect is reported or the checks performed are listed"
+    - "The three npm audit advisories in baseline.md are each judged reachable or not reachable from attacker-controlled input, with the call path cited"
+    - "Every finding cites a file path with a line number or quoted code from this repository (or a named context document), and states what the implementation does, not what the documentation says"
+    - "Every finding carries all eleven fields in the fixed one-line form, with a severity that matches the brief's P0-P3 definitions"
+    - "Every P0 and P1 finding has an acceptance criterion naming the concrete check that would confirm or refute it: a test to write with its expected failure, or a command and its expected output"
+    - "Everything that could not be verified from the repository is listed as an Unknown in assumptions and is not treated as safe"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 8000000, max_cost_usd: 40.0, max_seconds: 10800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  codex_cli:  { type: cli, cli: codex }
+  agy_cli:    { type: cli, cli: agy }
+
+agents:
+  proposer:    { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  critic:      { provider: codex_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  synthesizer: { provider: claude_cli, timeout_s: 900, fallback: codex_cli }

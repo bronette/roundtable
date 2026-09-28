@@ -1,0 +1,79 @@
+# TeamsWebHook pre-launch audit, lane 1 of 4 (backend). One of four lane configs
+# (audit-teamswebhook-backend, -security, -billing, -store) that divide the operator's brief
+# by specialty, with a different vendor pairing in each. Read-only, autonomy 1: nothing is written.
+# Worktree mode on purpose (no read_in_place): the live checkout holds a real .env, and a
+# worktree contains tracked files only, so no secret reaches a vendor.
+project:
+  name: audit-teamswebhook-backend
+  repo: ../../TeamsWebHook
+  context_files:
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/brief.md
+    - ../../TeamsWebHook/docs/audits/roundtable-2026-09-27/baseline.md
+  objective: >
+    Lane 1 of 4: architecture, backend correctness, reliability, data integrity, operations. Pre-launch audit of TeamsWebHook for release to paying customers and
+    submission to the Microsoft Teams Store. This lane owns brief sections 1, 3, 5 (the reliability half), 8, 9, 11, 13, 14 and 17.
+    Act as a senior staff engineer and SRE performing the last review before paying customers
+    arrive. Reverse-engineer the system first: every HTTP, queue and timer function registered
+    under src/functions/, what it writes and reads in src/data/, the dispatch path from an inbound
+    webhook to a delivered Teams card (src/core/, the dispatch queue and dispatcher), and what
+    infra/ actually deploys. Then hunt for defects in how it behaves under real conditions:
+    duplicate and out-of-order inbound events, retries and retry storms, poison messages and
+    dead-lettering, partial failure of multi-step writes (a crash between two Cosmos writes),
+    concurrent writers, missing awaits and unhandled rejections, timeouts against Teams, Graph,
+    Bot Framework, Cosmos, Redis, Service Bus and Key Vault, behaviour when each of those is
+    unavailable for 30 seconds, five minutes and an hour, configuration that differs between
+    development and production, and whether support could diagnose "it isn't working" from the
+    logs, metrics, health endpoints and alerts that exist.
+    The operator's full brief is the context document brief.md; its sections are numbered and this
+    lane owns the sections named above, but follow evidence anywhere in the repository. "App Store"
+    in the brief means the Microsoft Teams Store (Partner Center validation), not Apple's.
+    The product is "Per My Last Webhook": Azure Functions (TypeScript) API in src/, a React admin
+    UI in admin-ui/, Bicep in infra/, the Teams app package in teamsApp/, Stripe billing, Cosmos DB.
+    You are read-only and cannot run the test suite; baseline.md records the real results of the
+    suite, lint, typecheck, npm audit and the validators, run today on this commit. Do not claim a
+    test result that is not in baseline.md. Earlier audits and their responses are in docs/audits/.
+    Do not repeat an earlier finding as open because an old audit says so, and do not accept one as
+    fixed because a response says so: open the code and say what it does now. Documentation is a
+    claim to be checked against the implementation, never evidence of behaviour.
+    HOW TO ANSWER IN THE SCHEMA. `scope` is single_task: this lane is one read-only audit with
+    one deliverable, the findings list, so do not decompose it. `claim` is this lane's release-gate verdict in one sentence:
+    NO-GO, GO-AFTER-FIXES or GO, with the count of findings at each severity. `evidence` holds the
+    findings, one entry per finding, each in exactly this form on one line:
+    "TW-A-NN | P0-P3 | Category | Location (file:line, function, endpoint) | Problem | Evidence
+    (what the code does, quoted or cited by line) | Customer impact | Reproduction | Recommended fix
+    | Required test | Confidence High/Medium/Low". Order them by severity. `assumptions` holds the
+    Unknowns: everything you could not verify, each stated as unverified and never as safe.
+    `risks` holds interactions between findings and the things most likely to be wrong in your own
+    audit. `approach` says which files and paths you actually traced, in at most 300 words.
+    Severity follows the brief's definitions exactly; do not inflate it, and do not report a style
+    preference as a defect. A finding without a file path and a line or quoted code is not a finding.
+    Report what is sound as well as what is broken only where a requirement asks for a positive
+    statement; otherwise spend the words on defects.
+  requirements:
+    - "Every registered function (HTTP route, queue trigger, timer) is enumerated with its auth level, its input validation, whether it is rate limited and whether its query or work is bounded"
+    - "The inbound-webhook-to-Teams delivery path is traced end to end, and for each of duplicate delivery, malformed JSON, Teams 429, 401/403, 404, 5xx and timeout the audit states what the code does, citing the lines"
+    - "Every multi-step write is examined for the state left behind if the process dies between steps, and any unrecoverable state is a finding"
+    - "For each external dependency the audit states whether a failure is retried, queued, dropped, duplicated, shown to the customer, logged and alerted"
+    - "Every finding cites a file path with a line number or quoted code from this repository (or a named context document), and states what the implementation does, not what the documentation says"
+    - "Every finding carries all eleven fields in the fixed one-line form, with a severity that matches the brief's P0-P3 definitions"
+    - "Every P0 and P1 finding has an acceptance criterion naming the concrete check that would confirm or refute it: a test to write with its expected failure, or a command and its expected output"
+    - "Everything that could not be verified from the repository is listed as an Unknown in assumptions and is not treated as safe"
+
+autonomy: 1
+runs_dir: ../runs
+pricing: pricing.yaml
+budget: { max_rounds: 2, max_calls: 12, max_tokens: 8000000, max_cost_usd: 40.0, max_seconds: 10800 }
+
+providers:
+  claude_cli: { type: cli, cli: claude }
+  codex_cli:  { type: cli, cli: codex }
+  agy_cli:    { type: cli, cli: agy }
+
+# 2026-09-27: run_7b3d7dfd78's first proposal was written by claude_cli (codex_cli failed on a strict-schema
+# bug, since fixed in providers/base.py), so the critic was moved to codex_cli and the reviser to claude_cli
+# to keep the two sides on different vendors. The run was resumed at CRITIQUE with this file.
+agents:
+  proposer:    { provider: codex_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: claude_cli }
+  critic:      { provider: codex_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: agy_cli }
+  reviser:     { provider: claude_cli, mode: read, timeout_s: 1800, max_turns: 120, fallback: codex_cli }
+  synthesizer: { provider: claude_cli, timeout_s: 900, fallback: codex_cli }

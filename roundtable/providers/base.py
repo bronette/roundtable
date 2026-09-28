@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from dataclasses import dataclass, field
@@ -108,19 +109,30 @@ def json_schema_for(schema: type[BaseModel], *, strict: bool = False) -> dict[st
     return strictify(s) if strict else s
 
 
-def strictify(node: Any) -> Any:
+def strictify(node: Any, root: dict[str, Any] | None = None) -> Any:
     """OpenAI/Codex strict mode: every object sets additionalProperties=false and requires
-    every property; `default` keywords are removed because strict mode rejects them."""
+    every property; `default` keywords are removed because strict mode rejects them. A `$ref`
+    may not carry sibling keywords either (pydantic emits one for an enum field with a
+    description), so such a reference is replaced by its definition and keeps the siblings."""
+    if root is None and isinstance(node, dict):
+        root = node
     if isinstance(node, dict):
         node.pop("default", None)
+        ref = node.get("$ref")
+        if isinstance(ref, str) and len(node) > 1 and root is not None and ref.startswith("#/$defs/"):
+            target = root.get("$defs", {}).get(ref.removeprefix("#/$defs/"))
+            if isinstance(target, dict):
+                siblings = {k: v for k, v in node.items() if k != "$ref"}
+                node.clear()
+                node.update(copy.deepcopy(target) | siblings)
         if node.get("type") == "object" and "properties" in node:
             node["additionalProperties"] = False
             node["required"] = list(node["properties"].keys())
         for v in node.values():
-            strictify(v)
+            strictify(v, root)
     elif isinstance(node, list):
         for v in node:
-            strictify(v)
+            strictify(v, root)
     return node
 
 

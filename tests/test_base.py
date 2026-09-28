@@ -60,3 +60,29 @@ def test_split_messages_renders_repair_transcript():
 
 def test_strictify_handles_lists():
     assert strictify([{"type": "object", "properties": {"x": {}}}])[0]["required"] == ["x"]
+
+
+def _refs_with_siblings(node, path=""):
+    if isinstance(node, dict):
+        if "$ref" in node and len(node) > 1:
+            yield path
+        for k, v in node.items():
+            yield from _refs_with_siblings(v, f"{path}/{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _refs_with_siblings(v, f"{path}/{i}")
+
+
+@pytest.mark.parametrize("name", ["Proposal", "Critique", "TradingCritique", "Review", "Synthesis", "Interpretation", "InterpretationReview"])
+def test_strict_schema_has_no_ref_with_sibling_keywords(name):
+    # OpenAI strict mode answers 400 "$ref cannot have keywords {'description'}"; seen on codex-cli 0.155.1, 2026-09-27
+    from roundtable import schemas
+    s = json_schema_for(getattr(schemas, name), strict=True)
+    assert list(_refs_with_siblings(s)) == []
+
+
+def test_strictify_inlines_a_described_enum_and_keeps_the_description():
+    from roundtable.schemas import Proposal
+    scope = json_schema_for(Proposal, strict=True)["properties"]["scope"]
+    assert scope["enum"] == ["single_task", "needs_decomposition"]
+    assert scope["description"].startswith("single_task if")
